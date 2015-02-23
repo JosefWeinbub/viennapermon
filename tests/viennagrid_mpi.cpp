@@ -11,7 +11,7 @@
 // Local includes
 #include "viennagrid_mpi.hpp"
 
-int main()
+int main(int argc, char* argv[])
 {
   int mpi_size, mpi_rank;
   MPI_Init(&argc, &argv);
@@ -36,7 +36,7 @@ int main()
     viennagrid::io::vtk_reader<MeshType> reader;
     MeshHierarchyType mesh_hierarchy;
     MeshType mesh = mesh_hierarchy.root();
-    reader(mesh, "../data/tets_with_data_main.pvd");
+    reader(mesh, "../../tests/data/tets_with_data_main.pvd");
     mesh_hierarchy.serialize(serialized_mesh);
   }
   else
