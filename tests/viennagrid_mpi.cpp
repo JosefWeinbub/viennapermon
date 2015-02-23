@@ -38,12 +38,22 @@ int main(int argc, char* argv[])
     MeshType mesh = mesh_hierarchy.root();
     reader(mesh, "../../tests/data/tets_with_data_main.pvd");
     mesh_hierarchy.serialize(serialized_mesh);
+
+    // MPI send serialized_mesh
   }
   else
   {
+    // MPI receive serialized_mesh
+
+    MeshHierarchyType mesh_hierarchy;
+    //mesh_hierarchy.deserialize(serialized_mesh);
+    //MeshType mesh = mesh_hierarchy.root();
+
+    //viennagrid::io::vtk_writer<MeshType> writer;
+    //writer(mesh, "deserialized");
   }
 
-
+  viennagrid_serialized_mesh_hierarchy_delete(serialized_mesh);
 
 
 
