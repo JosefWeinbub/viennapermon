@@ -29,6 +29,18 @@ public:
     for(int i = 0; i < serialized_mesh->mesh_count; i++)
       mesh_cells_size += serialized_mesh->mesh_cell_count[i];
 
+    array_sizes_ = new int[9];
+    array_sizes_[0] = serialized_mesh->hole_point_element_count+1;
+    array_sizes_[1] = serialized_mesh->cell_count+1;
+    array_sizes_[2] = serialized_mesh->cell_vertex_offsets[serialized_mesh->cell_count];
+    array_sizes_[3] = serialized_mesh->cell_count;
+    array_sizes_[4] = serialized_mesh->cell_count+1;
+    array_sizes_[5] = serialized_mesh->cell_region_offsets[serialized_mesh->cell_count];
+    array_sizes_[6] = serialized_mesh->mesh_count;
+    array_sizes_[7] = serialized_mesh->mesh_count;
+    array_sizes_[8] = serialized_mesh->region_count;
+    //array_sizes_[9] = 
+
     int int_len =
       1+ // geometric_dimension
       1+ // vertex_count
@@ -146,6 +158,7 @@ public:
   bool          commited_;
   int           typesize_;
   int*          blocklen_;
+  int*          array_sizes_;
   bool          delete_blocklen_;
 };
 
