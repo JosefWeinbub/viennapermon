@@ -37,20 +37,29 @@ int main(int argc, char* argv[])
     MeshHierarchyType mesh_hierarchy;
     MeshType mesh = mesh_hierarchy.root();
     reader(mesh, "../../tests/data/tets_with_data_main.pvd");
-    mesh_hierarchy.serialize(serialized_mesh);
+    mesh_hierarchy.serialize(serialized_mesh, true);
 
-    // MPI send serialized_mesh
+    viennagrid::mpi::serializedmesh_operator sermeshop(serialized_mesh);
+
+    MPI_Send(&sermeshop.get_blocklen_size(), 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
+    MPI_Send(sermeshop.get_blocklen(), sermeshop.get_blocklen_size(), MPI_INT, 1, 0, MPI_COMM_WORLD);
+    MPI_Send(&sermeshop.get_mesh(), 1, sermeshop.get_mpi_type(), 1, 0, MPI_COMM_WORLD);
   }
   else
   {
-    // MPI receive serialized_mesh
+    int blocklen_size = 0;
+    MPI_Recv(&blocklen_size, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    int* blocklen = new int[blocklen_size];
+    MPI_Recv(blocklen, blocklen_size, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-    MeshHierarchyType mesh_hierarchy;
-    //mesh_hierarchy.deserialize(serialized_mesh);
-    //MeshType mesh = mesh_hierarchy.root();
+    viennagrid::mpi::serializedmesh_operator sermeshop(serialized_mesh, blocklen, blocklen_size);
+//    MPI_Recv(&sermeshop.get_mesh(), 1, sermeshop.get_mpi_type(), 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-    //viennagrid::io::vtk_writer<MeshType> writer;
-    //writer(mesh, "deserialized");
+//    MeshHierarchyType mesh_hierarchy;
+//    mesh_hierarchy.deserialize(sermeshop.get_mesh());
+//    MeshType mesh = mesh_hierarchy.root();
+//    viennagrid::io::vtk_writer<MeshType> writer;
+//    writer(mesh, "deserialized");
   }
 
   viennagrid_serialized_mesh_hierarchy_delete(serialized_mesh);
