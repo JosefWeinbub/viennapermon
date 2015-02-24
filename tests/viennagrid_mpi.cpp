@@ -31,6 +31,8 @@ int main(int argc, char* argv[])
   viennagrid_serialized_mesh_hierarchy serialized_mesh;
   viennagrid_serialized_mesh_hierarchy_make(&serialized_mesh);
 
+  MPI_Datatype  MPI_VIENNAGRID_SERIALIZEDMESH;
+
   if(mpi_rank == 0)
   {
     viennagrid::io::vtk_reader<MeshType> reader;
@@ -39,11 +41,15 @@ int main(int argc, char* argv[])
     reader(mesh, "../../tests/data/tets_with_data_main.pvd");
     mesh_hierarchy.serialize(serialized_mesh, true);
 
-    viennagrid::mpi::serializedmesh_operator sermeshop(serialized_mesh);
+    viennagrid::mpi::serializedmesh_operator sermeshop(serialized_mesh, &MPI_VIENNAGRID_SERIALIZEDMESH);
 
-    MPI_Send(&sermeshop.get_blocklen_size(), 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
-    MPI_Send(sermeshop.get_blocklen(), sermeshop.get_blocklen_size(), MPI_INT, 1, 0, MPI_COMM_WORLD);
-    MPI_Send(&sermeshop.get_mesh(), 1, sermeshop.get_mpi_type(), 1, 0, MPI_COMM_WORLD);
+    MPI_Send(&sermeshop.get_blocklen_size(), 1,                             MPI_INT,                  1, 0, MPI_COMM_WORLD);
+    MPI_Send(sermeshop.get_blocklen(),       sermeshop.get_blocklen_size(), MPI_INT,                  1, 0, MPI_COMM_WORLD);
+    MPI_Send(&serialized_mesh,          1, MPI_VIENNAGRID_SERIALIZEDMESH, 1, 0, MPI_COMM_WORLD);
+
+
+
+
   }
   else
   {
@@ -52,17 +58,24 @@ int main(int argc, char* argv[])
     int* blocklen = new int[blocklen_size];
     MPI_Recv(blocklen, blocklen_size, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-    viennagrid::mpi::serializedmesh_operator sermeshop(serialized_mesh, blocklen, blocklen_size);
-//    MPI_Recv(&sermeshop.get_mesh(), 1, sermeshop.get_mpi_type(), 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    viennagrid::mpi::serializedmesh_operator sermeshop(serialized_mesh, &MPI_VIENNAGRID_SERIALIZEDMESH, blocklen, blocklen_size);
+//    MPI_Recv(&sermeshop.get_mesh(), 1, MPI_VIENNAGRID_SERIALIZEDMESH, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    std::cout << "receive finished .." << std::endl;
+
+//    std::cout << "vertex count received: " << sermeshop.get_mesh()->vertex_count << std::endl;
+//    std::cout << "geom dim:              " << serialized_mesh->geometric_dimension << std::endl;
 
 //    MeshHierarchyType mesh_hierarchy;
 //    mesh_hierarchy.deserialize(sermeshop.get_mesh());
 //    MeshType mesh = mesh_hierarchy.root();
+
+//    std::cout << "writing file .." << std::endl;
 //    viennagrid::io::vtk_writer<MeshType> writer;
 //    writer(mesh, "deserialized");
   }
 
-  viennagrid_serialized_mesh_hierarchy_delete(serialized_mesh);
+//  viennagrid_serialized_mesh_hierarchy_delete(serialized_mesh);
 
 
 

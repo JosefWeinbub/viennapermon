@@ -13,14 +13,15 @@ struct serializedmesh_operator
 {
 public:
 
-  serializedmesh_operator(viennagrid_serialized_mesh_hierarchy& serialized_mesh, int* blocklen, int blocklen_size) :
-    serialized_mesh_(serialized_mesh), commited_(false)
+  serializedmesh_operator(viennagrid_serialized_mesh_hierarchy serialized_mesh, MPI_Datatype* mpi_datatype, int* blocklen, int blocklen_size) :
+    serialized_mesh_(serialized_mesh), commited_(false), delete_blocklen_(false)
   {
-    register_datatype(serialized_mesh, blocklen, blocklen_size);
+    typesize_ = blocklen_size;
+    register_datatype(mpi_datatype, blocklen, blocklen_size);
   }
 
-  serializedmesh_operator(viennagrid_serialized_mesh_hierarchy& serialized_mesh) :
-    serialized_mesh_(serialized_mesh), commited_(false)
+  serializedmesh_operator(viennagrid_serialized_mesh_hierarchy serialized_mesh, MPI_Datatype* mpi_datatype) :
+    serialized_mesh_(serialized_mesh), commited_(false), delete_blocklen_(false)
   {
 //    if(serialized_mesh->cell_count == 0) return;
 
@@ -58,50 +59,70 @@ public:
     for(int i = 0; i < serialized_mesh->region_count; i++)
       char_len += strlen(serialized_mesh->region_names[i])+1;
 
-    typesize_  = 4;
-    blocklen_ = new int[typesize_];
-    blocklen_[0] = int_len;
-    blocklen_[1] = double_len;
-    blocklen_[2] = unsigned_char_len;
-    blocklen_[3] = char_len;
+//    typesize_  = 4;
+//    blocklen_ = new int[typesize_];
+//    delete_blocklen_ = true;
+//    blocklen_[0] = int_len;
+//    blocklen_[1] = double_len;
+//    blocklen_[2] = unsigned_char_len;
+//    blocklen_[3] = char_len;
 
-    register_datatype(serialized_mesh, blocklen_, typesize_);
+    typesize_  = 1;
+    blocklen_ = new int[typesize_];
+    delete_blocklen_ = true;
+    blocklen_[0] = double_len;
+
+
+    register_datatype(mpi_datatype, blocklen_, typesize_);
   }
 
   ~serializedmesh_operator()
   {
-    if(commited_)
-    {
-      MPI_Type_free(&get_mpi_type());
-      delete disp_;
-      delete blocklen_;
-    }
+//    if(commited_)
+//    {
+//      MPI_Type_free(&get_mpi_type());
+//      delete disp_;
+//      if(delete_blocklen_) delete blocklen_;
+//    }
   }
 
 private:
-  void register_datatype(viennagrid_serialized_mesh_hierarchy& serialized_mesh, int* blocklen, int blocklen_size)
+  void register_datatype(MPI_Datatype* mpi_datatype, int* blocklen, int blocklen_size)
   {
-    MPI_Datatype  types[]    = {MPI_INT, MPI_DOUBLE, MPI_UNSIGNED_CHAR, MPI_CHAR};
+    std::cout << blocklen_size << " blocklen size " << std::endl;
+//    std::cout << blocklen[0] << " ints" << std::endl;
+//    std::cout << blocklen[1] << " doubles" << std::endl;
+//    std::cout << blocklen[2] << " unsigned char" << std::endl;
+//    std::cout << blocklen[3] << " char" << std::endl;
+
+    std::cout << blocklen[0] << " doubles" << std::endl;
+
+//    MPI_Datatype  types[]    = {MPI_INT, MPI_DOUBLE, MPI_UNSIGNED_CHAR, MPI_CHAR};
+//    disp_ = new MPI_Aint[blocklen_size];
+//    MPI_Address(&(serialized_mesh_->geometric_dimension),   &disp_[0]);
+//    MPI_Address(&(serialized_mesh_->points),                &disp_[1]);
+//    MPI_Address(&(serialized_mesh_->cell_element_tags),     &disp_[2]);
+//    MPI_Address(&(serialized_mesh_->region_names),          &disp_[3]);
+
+    MPI_Datatype  types[]    = {MPI_DOUBLE};
     disp_ = new MPI_Aint[blocklen_size];
-    MPI_Address(&(serialized_mesh->geometric_dimension),   &disp_[0]);
-    MPI_Address(&(serialized_mesh->points),                &disp_[1]);
-    MPI_Address(&(serialized_mesh->cell_element_tags),     &disp_[2]);
-    MPI_Address(&(serialized_mesh->region_names),          &disp_[3]);
+    MPI_Address(&(serialized_mesh_->points),                &disp_[0]);
+
 
     for(int i = blocklen_size-1; i >= 0; i--)
       disp_[i] -= disp_[0];
 
-    MPI_Type_struct(blocklen_size, blocklen, disp_, types, &get_mpi_type());
-    MPI_Type_commit(&get_mpi_type());
+    MPI_Type_struct(blocklen_size, blocklen, disp_, types, mpi_datatype);
+    MPI_Type_commit(mpi_datatype);
     commited_ = true;
   }
 
 
 public:
-  MPI_Datatype& get_mpi_type()
-  {
-    return MPI_VIENNAGRID_SERIALIZEDMESH_;
-  }
+//  MPI_Datatype& get_mpi_type()
+//  {
+//    return MPI_VIENNAGRID_SERIALIZEDMESH_;
+//  }
 
   viennagrid_serialized_mesh_hierarchy& get_mesh()
   {
@@ -120,11 +141,12 @@ public:
 
 
   viennagrid_serialized_mesh_hierarchy& serialized_mesh_;
-  MPI_Datatype  MPI_VIENNAGRID_SERIALIZEDMESH_;
+//  MPI_Datatype  MPI_VIENNAGRID_SERIALIZEDMESH_;
   MPI_Aint*     disp_;
   bool          commited_;
   int           typesize_;
   int*          blocklen_;
+  bool          delete_blocklen_;
 };
 
 
