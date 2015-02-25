@@ -180,7 +180,7 @@ void recv(viennagrid_serialized_mesh_hierarchy serialized_mesh, int source, MPI_
     viennagrid_new((name_length)*sizeof(char), (void**)&temp_name_cut);
     std::copy(temp_name, temp_name+name_length, temp_name_cut);
     serialized_mesh->region_names[i] = (const char *)temp_name_cut;
-    viennagrid_delete(temp_name);
+    viennagrid_delete((void**)&temp_name);
   }
 
   viennagrid_new((serialized_mesh->vertex_count*serialized_mesh->geometric_dimension)*sizeof(double), (void**)&(serialized_mesh->points));
