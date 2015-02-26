@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
       MeshHierarchyType mesh_hierarchy;
       MeshType mesh = mesh_hierarchy.root();
       viennagrid::io::vtk_reader<MeshType> reader;
-      reader(mesh, "../../tests/data/tets_with_data_main.pvd");
+      reader(mesh, "../../data/tets_with_data_main.pvd");
       viennagrid::mpi::send(mesh_hierarchy, 1, MPI_COMM_WORLD);
     }
     // Test 2
@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
       MeshHierarchyType mesh_hierarchy;
       MeshType mesh = mesh_hierarchy.root();
       viennagrid::io::vtk_reader<MeshType> reader;
-      reader(mesh, "../../tests/data/tets_with_data_main.pvd");
+      reader(mesh, "../../data/tets_with_data_main.pvd");
       viennagrid_serialized_mesh_hierarchy serialized_mesh;
       viennagrid_serialized_mesh_hierarchy_make(&serialized_mesh);
       mesh_hierarchy.serialize(serialized_mesh, true);
