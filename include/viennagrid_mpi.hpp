@@ -156,7 +156,7 @@ void recv(viennagrid_serialized_mesh_hierarchy serialized_mesh, int source, MPI_
   viennagrid_new((serialized_mesh->mesh_count)*sizeof(int), (void**)&(serialized_mesh->mesh_cell_count));
   MPI_Recv(serialized_mesh->mesh_cell_count, serialized_mesh->mesh_count, MPI_INT, source, MESH_CELL_COUNT, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-  viennagrid_new((serialized_mesh->mesh_count)*sizeof(int), (void**)&(serialized_mesh->mesh_cells));
+  viennagrid_new((serialized_mesh->mesh_count)*sizeof(int*), (void**)&(serialized_mesh->mesh_cells));
   for(int i = 0; i < serialized_mesh->mesh_count; i++)
   {
     viennagrid_new((serialized_mesh->mesh_cell_count[i])*sizeof(int), (void**)&(serialized_mesh->mesh_cells[i]));
