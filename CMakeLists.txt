@@ -46,7 +46,12 @@ IF(BUILD_TESTS)
   ADD_SUBDIRECTORY(tests)
 ENDIF(BUILD_TESTS)
 
-##Compatibility with Qt-Creator
+#build the application
+ADD_EXECUTABLE(viennapermon_sim     src/viennapermon_sim.cpp)
+TARGET_LINK_LIBRARIES(viennapermon_sim ${LIBRARIES})
+ADD_DEPENDENCIES(viennapermon_sim viennagrid)
+
+#Compatibility with Qt-Creator
 file( GLOB_RECURSE QtCreatorCompatibility_SRC
     viennamini/*.hpp viennamini/*.h)
 add_custom_target( QtCreatorCompatibility SOURCES ${QtCreatorCompatibility_SRC} )
