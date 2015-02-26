@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
       MeshType mesh = mesh_hierarchy.root();
       writer(mesh, "received_hierarchy");
     }
-    // Test 2
+//    // Test 2
     // Receive a serialized mesh
     {
       MeshHierarchyType mesh_hierarchy;

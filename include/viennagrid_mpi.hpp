@@ -68,7 +68,6 @@ void send(viennagrid_serialized_mesh_hierarchy serialized_mesh, int destination,
   scalar_values[7] = serialized_mesh->data_owned;
   MPI_Send(&scalar_values.front(), scalar_values.size(), MPI_INT, destination, SCALAR_VALUES, MPI_COMM_WORLD);
 
-  MPI_Send(serialized_mesh->hole_points_offsets, serialized_mesh->hole_point_element_count+1, MPI_INT, destination, HOLE_POINTS_OFFSETS, MPI_COMM_WORLD);
   MPI_Send(serialized_mesh->cell_vertex_offsets, serialized_mesh->cell_count+1, MPI_INT, destination, CELL_VERTEX_OFFSETS, MPI_COMM_WORLD);
   MPI_Send(serialized_mesh->cell_vertices,       serialized_mesh->cell_vertex_offsets[serialized_mesh->cell_count], MPI_INT, destination, CELL_VERTICES, MPI_COMM_WORLD);
   MPI_Send(serialized_mesh->cell_parents,        serialized_mesh->cell_count, MPI_INT, destination, CELL_PARENTS, MPI_COMM_WORLD);
@@ -88,7 +87,10 @@ void send(viennagrid_serialized_mesh_hierarchy serialized_mesh, int destination,
   MPI_Send(serialized_mesh->points,      serialized_mesh->vertex_count*serialized_mesh->geometric_dimension, MPI_DOUBLE, destination, POINTS, MPI_COMM_WORLD);
 
   if(serialized_mesh->hole_point_element_count > 0)
+  {
+    MPI_Send(serialized_mesh->hole_points_offsets, serialized_mesh->hole_point_element_count+1, MPI_INT, destination, HOLE_POINTS_OFFSETS, MPI_COMM_WORLD);
     MPI_Send(serialized_mesh->hole_points, serialized_mesh->hole_points_offsets[serialized_mesh->hole_point_element_count], MPI_DOUBLE, destination, HOLE_POINTS, MPI_COMM_WORLD);
+  }
 
   MPI_Send(serialized_mesh->cell_element_tags, serialized_mesh->cell_count, MPI_UNSIGNED_CHAR, destination, CELL_ELEMENT_TAGS, MPI_COMM_WORLD);
 }
@@ -132,9 +134,6 @@ void recv(viennagrid_serialized_mesh_hierarchy serialized_mesh, int source, MPI_
   serialized_mesh->mesh_count               = scalar_values[5];
   serialized_mesh->region_count             = scalar_values[6];
   serialized_mesh->data_owned               = scalar_values[7];
-
-  viennagrid_new((serialized_mesh->hole_point_element_count+1)*sizeof(int), (void**)&(serialized_mesh->hole_points_offsets));
-  MPI_Recv(serialized_mesh->hole_points_offsets, serialized_mesh->hole_point_element_count+1, MPI_INT, source, HOLE_POINTS_OFFSETS, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
   viennagrid_new((serialized_mesh->cell_count+1)*sizeof(int), (void**)&(serialized_mesh->cell_vertex_offsets));
   MPI_Recv(serialized_mesh->cell_vertex_offsets, serialized_mesh->cell_count+1, MPI_INT, source, CELL_VERTEX_OFFSETS, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -188,6 +187,9 @@ void recv(viennagrid_serialized_mesh_hierarchy serialized_mesh, int source, MPI_
 
   if(serialized_mesh->hole_point_element_count > 0)
   {
+    viennagrid_new((serialized_mesh->hole_point_element_count+1)*sizeof(int), (void**)&(serialized_mesh->hole_points_offsets));
+    MPI_Recv(serialized_mesh->hole_points_offsets, serialized_mesh->hole_point_element_count+1, MPI_INT, source, HOLE_POINTS_OFFSETS, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
     viennagrid_new((serialized_mesh->hole_points_offsets[serialized_mesh->hole_point_element_count])*sizeof(double), (void**)&(serialized_mesh->hole_points));
     MPI_Recv(serialized_mesh->hole_points, serialized_mesh->hole_points_offsets[serialized_mesh->hole_point_element_count], MPI_DOUBLE, source, HOLE_POINTS, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   }
