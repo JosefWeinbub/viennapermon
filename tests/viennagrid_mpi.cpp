@@ -40,19 +40,19 @@ int main(int argc, char* argv[])
       reader(mesh, "../../tests/data/tets_with_data_main.pvd");
       viennagrid::mpi::send(mesh_hierarchy, 1, MPI_COMM_WORLD);
     }
-//    // Test 2
-//    // Transmit a serialized mesh
-//    {
-//      MeshHierarchyType mesh_hierarchy;
-//      MeshType mesh = mesh_hierarchy.root();
-//      viennagrid::io::vtk_reader<MeshType> reader;
-//      reader(mesh, "../../tests/data/tets_with_data_main.pvd");
-//      viennagrid_serialized_mesh_hierarchy serialized_mesh;
-//      viennagrid_serialized_mesh_hierarchy_make(&serialized_mesh);
-//      mesh_hierarchy.serialize(serialized_mesh, true);
-//      viennagrid::mpi::send(serialized_mesh, 1, MPI_COMM_WORLD);
-//      viennagrid_serialized_mesh_hierarchy_delete(serialized_mesh);
-//    }
+    // Test 2
+    // Transmit a serialized mesh
+    {
+      MeshHierarchyType mesh_hierarchy;
+      MeshType mesh = mesh_hierarchy.root();
+      viennagrid::io::vtk_reader<MeshType> reader;
+      reader(mesh, "../../tests/data/tets_with_data_main.pvd");
+      viennagrid_serialized_mesh_hierarchy serialized_mesh;
+      viennagrid_serialized_mesh_hierarchy_make(&serialized_mesh);
+      mesh_hierarchy.serialize(serialized_mesh, true);
+      viennagrid::mpi::send(serialized_mesh, 1, MPI_COMM_WORLD);
+      viennagrid_serialized_mesh_hierarchy_delete(serialized_mesh);
+    }
   }
   else
   {
@@ -65,19 +65,19 @@ int main(int argc, char* argv[])
       MeshType mesh = mesh_hierarchy.root();
       writer(mesh, "received_hierarchy");
     }
-//    // Test 2
-//    // Receive a serialized mesh
-//    {
-//      MeshHierarchyType mesh_hierarchy;
-//      viennagrid_serialized_mesh_hierarchy serialized_mesh;
-//      viennagrid_serialized_mesh_hierarchy_make(&serialized_mesh);
-//      viennagrid::mpi::recv(serialized_mesh, 0, MPI_COMM_WORLD);
-//      mesh_hierarchy.deserialize(serialized_mesh);
-//      viennagrid::io::vtk_writer<MeshType> writer;
-//      MeshType mesh = mesh_hierarchy.root();
-//      writer(mesh, "received_serialized_mesh");
-//      viennagrid_serialized_mesh_hierarchy_delete(serialized_mesh);
-//    }
+    // Test 2
+    // Receive a serialized mesh
+    {
+      MeshHierarchyType mesh_hierarchy;
+      viennagrid_serialized_mesh_hierarchy serialized_mesh;
+      viennagrid_serialized_mesh_hierarchy_make(&serialized_mesh);
+      viennagrid::mpi::recv(serialized_mesh, 0, MPI_COMM_WORLD);
+      mesh_hierarchy.deserialize(serialized_mesh);
+      viennagrid::io::vtk_writer<MeshType> writer;
+      MeshType mesh = mesh_hierarchy.root();
+      writer(mesh, "received_serialized_mesh");
+      viennagrid_serialized_mesh_hierarchy_delete(serialized_mesh);
+    }
   }
 
 
