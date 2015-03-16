@@ -8,15 +8,25 @@
 #include "viennagrid/io/vtk_reader.hpp"
 #include "viennagrid/io/vtk_writer.hpp"
 
+// ViennaMesh includes
+#include "viennamesh/algorithm_pipeline.hpp"
+
 // Local includes
 #include "viennagrid_mpi.hpp"
 
 
-void process_local(viennagrid::mesh_hierarchy_t& mesh_hierarchy_local)
+void process_local(viennamesh::context_handle & context,
+                   int mpi_rank,
+                   viennagrid::mesh_t mesh_local)
 {
-  // TODO Perform the local FEM-based simulation
-  // Every MPI process executes this bit for its own mesh
-  //
+  viennamesh::algorithm_handle mesher = context.make_algorithm("tetgen_make_mesh");
+  mesher.set_input( "mesh", mesh_local.internal() );
+  mesher.run();
+
+  viennamesh::algorithm_handle mesh_writer = context.make_algorithm("mesh_writer");
+  mesh_writer.set_default_source(mesher);
+  mesh_writer.set_input( "filename", "mpi_mesh_" + lexical_cast<std::string>(mpi_rank) + "_mesh.vtu" );
+  mesh_writer.run();
 }
 
 int main(int argc, char* argv[])
@@ -44,23 +54,35 @@ int main(int argc, char* argv[])
     return 1;
   }
 
+
+  viennamesh::context_handle context;
+
   // Master process
   if(mpi_rank == 0)
   {
-    // Load the input mesh
-    //
-    MeshHierarchyType mesh_hierarchy;
-    MeshType mesh = mesh_hierarchy.root();
-    viennagrid::io::vtk_reader<MeshType> reader;
-    reader(mesh, argv[1]);
+    std::string filename = argv[1];
 
-    // Partition the input mesh - one partition for each MPI process
-    //
-    std::vector<MeshHierarchyType*> mesh_partitions(mpi_size);
-    // ... TODO populate 'mesh_partitions' via a METIS partitioning and ViennaMesh postprocessing
-    // for testing, we use/distribute the input mesh to all processes
-    for(std::size_t i = 0; i < mesh_partitions.size(); i++)
-      mesh_partitions[i] = &mesh_hierarchy;
+    viennamesh::algorithm_handle mesh_reader = context.make_algorithm("mesh_reader");
+    mesh_reader.set_input( "filename", filename );
+    mesh_reader.run();
+
+    viennamesh::algorithm_handle mesher = context.make_algorithm("tetgen_make_mesh");
+    mesher.set_default_source(mesh_reader);
+    mesher.run();
+
+    viennamesh::algorithm_handle metis_partitioning = context.make_algorithm("metis_mesh_partitioning");
+    metis_partitioning.set_default_source(mesher);
+    metis_partitioning.set_input( "region_count", mpi_size );
+    metis_partitioning.run();
+
+    viennamesh::algorithm_handle extract_boundary = context.make_algorithm("extract_boundary");
+    extract_boundary.set_default_source(metis_partitioning);
+    extract_boundary.run();
+
+    viennamesh::algorithm_handle split_mesh = context.make_algorithm("split_mesh");
+    split_mesh.set_default_source(extract_boundary);
+    split_mesh.run();
+
 
     // Distribute the partitions
     // partition-0 is processed by the master process (this process, mpi_rank=0)
@@ -68,13 +90,17 @@ int main(int argc, char* argv[])
     //
     for(int target = 1; target < mpi_size; target++)
     {
-      // transfer this partition
-      viennagrid::mpi::send(*mesh_partitions[target], target, MPI_COMM_WORLD);
+      viennamesh::data_handle<viennagrid_mesh> mesh = split_mesh.get_output<viennagrid_mesh>( "mesh[" + lexical_cast<std::string>(target) + "]" );
+
+      MeshHierarchyType mh = mesh().mesh_hierarchy();
+      viennagrid::mpi::send(mh, target, MPI_COMM_WORLD);
     }
 
     // Master simulates the first partition
     //
-    process_local(*mesh_partitions.front());
+
+    viennamesh::data_handle<viennagrid_mesh> mesh = split_mesh.get_output<viennagrid_mesh>( "mesh[0]" );
+    process_local(context, mpi_rank, mesh());
   }
   // Worker processes
   else
@@ -83,10 +109,11 @@ int main(int argc, char* argv[])
     //
     MeshHierarchyType mesh_hierarchy;
     viennagrid::mpi::recv(mesh_hierarchy, 0, MPI_COMM_WORLD);
+    MeshType mesh = mesh_hierarchy.root();
 
     // Process/simulate the local mesh
     //
-    process_local(mesh_hierarchy);
+    process_local(context, mpi_rank, mesh_hierarchy.root());
   }
 
   MPI_Finalize();
