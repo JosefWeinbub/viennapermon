@@ -1,0 +1,62 @@
+<algorithm id="mesh_reader" name="mesh_reader">
+  <parameter name="filename" type="string">data/cube.poly</parameter>
+</algorithm>
+
+<algorithm id="tetgen_make_mesh" name="tetgen_make_mesh">
+  <default_source>mesh_reader</default_source>
+</algorithm>
+
+<algorithm id="metis_mesh_partitioning" name="metis_mesh_partitioning">
+  <default_source>tetgen_make_mesh</default_source>
+  <parameter name="region_count" type="int">2</parameter>
+</algorithm>
+
+<algorithm id="extract_boundary" name="extract_boundary">
+  <default_source>metis_mesh_partitioning</default_source>
+</algorithm>
+
+<algorithm id="extract_plc_geometry" name="extract_plc_geometry">
+  <default_source>extract_boundary</default_source>
+  <parameter name="coplanar_tolerance" type="double">1e-2</parameter>
+  <parameter name="colinear_tolerance" type="double">1e-2</parameter>
+</algorithm>
+
+<algorithm id="triangle_make_hull" name="triangle_make_hull">
+  <default_source>extract_plc_geometry</default_source>
+  <parameter name="cell_size" type="double">1.0</parameter>
+</algorithm>
+
+<algorithm id="mark_hull_regions" name="mark_hull_regions">
+  <default_source>triangle_make_hull</default_source>
+</algorithm>
+
+<algorithm id="split_mesh" name="split_mesh">
+  <default_source>mark_hull_regions</default_source>
+</algorithm>
+
+<algorithm id="mark_hull_regions" name="mark_hull_regions0">
+  <parameter name="mesh" type="dynamic">split_mesh/mesh[0]</parameter>
+</algorithm>
+
+<algorithm id="mark_hull_regions" name="mark_hull_regions1">
+  <parameter name="mesh" type="dynamic">split_mesh/mesh[1]</parameter>
+</algorithm>
+
+
+<algorithm id="netgen_make_mesh" name="netgen_make_mesh0">
+  <default_source>mark_hull_regions0</default_source>
+</algorithm>
+
+<algorithm id="netgen_make_mesh" name="netgen_make_mesh1">
+  <default_source>mark_hull_regions1</default_source>
+</algorithm>
+
+<algorithm id="mesh_writer" name="mesh_writer0">
+  <default_source>netgen_make_mesh0</default_source>
+  <parameter name="filename" type="string">mpi_mesh_0_meshed.vtu</parameter>
+</algorithm>
+
+<algorithm id="mesh_writer" name="mesh_writer1">
+  <default_source>netgen_make_mesh1</default_source>
+  <parameter name="filename" type="string">mpi_mesh_1_meshed.vtu</parameter>
+</algorithm>

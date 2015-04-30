@@ -19,8 +19,12 @@ void process_local(viennamesh::context_handle & context,
                    int mpi_rank,
                    viennagrid::mesh_t mesh_local)
 {
-  viennamesh::algorithm_handle mesher = context.make_algorithm("tetgen_make_mesh");
-  mesher.set_input( "mesh", mesh_local.internal() );
+  viennamesh::algorithm_handle mark_hull_regions = context.make_algorithm("mark_hull_regions");
+  mark_hull_regions.set_input( "mesh", mesh_local.internal() );
+  mark_hull_regions.run();
+
+  viennamesh::algorithm_handle mesher = context.make_algorithm("netgen_make_mesh");
+  mesher.set_default_source(mark_hull_regions);
   mesher.run();
 
   viennamesh::algorithm_handle mesh_writer = context.make_algorithm("mesh_writer");
@@ -79,8 +83,23 @@ int main(int argc, char* argv[])
     extract_boundary.set_default_source(metis_partitioning);
     extract_boundary.run();
 
+    viennamesh::algorithm_handle extract_plc_geometry = context.make_algorithm("extract_plc_geometry");
+    extract_plc_geometry.set_default_source(extract_boundary);
+    extract_plc_geometry.set_input("coplanar_tolerance", 1e-2);
+    extract_plc_geometry.set_input("colinear_tolerance", 1e-2);
+    extract_plc_geometry.run();
+
+    viennamesh::algorithm_handle triangle_make_hull = context.make_algorithm("triangle_make_hull");
+    triangle_make_hull.set_default_source(extract_plc_geometry);
+    triangle_make_hull.set_input("cell_size", 1.0);
+    triangle_make_hull.run();
+
+    viennamesh::algorithm_handle mark_hull_regions = context.make_algorithm("mark_hull_regions");
+    mark_hull_regions.set_default_source(triangle_make_hull);
+    mark_hull_regions.run();
+
     viennamesh::algorithm_handle split_mesh = context.make_algorithm("split_mesh");
-    split_mesh.set_default_source(extract_boundary);
+    split_mesh.set_default_source(mark_hull_regions);
     split_mesh.run();
 
 
