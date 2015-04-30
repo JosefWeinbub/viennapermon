@@ -1,7 +1,9 @@
-PROJECT(ViennaPermon C CXX)
+cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
+include ($ENV{VIENNAUTILSPATH}/cmake/vienna_build_common.cmake NO_POLICY_SCOPE)
 
-include(ExternalProject)
-include(FindPackageHandleStandardArgs)
+vienna_build_setup_project(ViennaPermon viennautils viennagrid viennamesh)
+
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_BINARY_DIR}/install/lib/cmake")
 
 # CMake 2.8.2 is required as a minimum due to the
 # ExternalProject_Add mechanism supporting GIT repositories
@@ -18,7 +20,7 @@ IF (NOT CMAKE_BUILD_TYPE)
 ENDIF()
 
 #set compiler flags
-SET(CMAKE_CXX_FLAGS "-Wall -pedantic -Wno-long-long")
+SET(CMAKE_CXX_FLAGS "-Wall -Wno-long-long -std=c++11")
 SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g ")
 SET(CMAKE_CXX_FLAGS_RELEASE "-O3 ")
 SET(CMAKE_CXX_FLAGS_DEBUG  "-O0 -g")
@@ -31,31 +33,16 @@ IF(MPI_FOUND)
   SET(LIBRARIES ${LIBRARIES} ${MPI_CXX_LIBRARIES})
 ENDIF(MPI_FOUND)
 
+vienna_build_add_subprojects()
 
 INCLUDE_DIRECTORIES(".")
 INCLUDE_DIRECTORIES("include/")
 
-INCLUDE(cmake/GetViennaGrid.cmake)
-MESSAGE(STATUS "ViennaGrid Include Path: " ${VIENNAGRID_INCLUDE_DIRS})
-MESSAGE(STATUS "ViennaGrid Libraries:    " ${VIENNAGRID_LIBRARIES})
-INCLUDE_DIRECTORIES(${VIENNAGRID_INCLUDE_DIRS})
-SET(LIBRARIES ${LIBRARIES} ${VIENNAGRID_LIBRARIES})
+# ViennaGrid
+SET(LIBRARIES ${LIBRARIES} viennagridpp)
 
-
-INCLUDE(cmake/GetViennaMesh.cmake)
-MESSAGE(STATUS "ViennaMesh Include Path: " ${VIENNAMESH_INCLUDE_DIRS})
-MESSAGE(STATUS "ViennaMesh Libraries:    " ${VIENNAMESH_LIBRARIES})
-
-set(VIENNAMESH_PLUGIN_DIRECTORIES "${CMAKE_CURRENT_BINARY_DIR}/viennamesh/plugins")
-MESSAGE(STATUS "ViennaGrid Plugins Directory:    ${VIENNAMESH_PLUGIN_DIRECTORIES}" )
-add_definitions( "-DVIENNAMESH_DEFAULT_PLUGIN_DIRECTORY=\"${VIENNAMESH_PLUGIN_DIRECTORIES}\"" )
-
-INCLUDE_DIRECTORIES(${VIENNAMESH_INCLUDE_DIRS})
-SET(LIBRARIES ${LIBRARIES} ${VIENNAMESH_LIBRARIES})
-
-
-
-
+# ViennaMesh
+SET(LIBRARIES ${LIBRARIES} viennameshpp)
 
 IF(BUILD_TESTS)
   enable_testing()
@@ -65,8 +52,6 @@ ENDIF(BUILD_TESTS)
 #build the application
 ADD_EXECUTABLE(viennapermon_sim     src/viennapermon_sim.cpp)
 TARGET_LINK_LIBRARIES(viennapermon_sim ${LIBRARIES})
-ADD_DEPENDENCIES(viennapermon_sim viennagrid)
-ADD_DEPENDENCIES(viennapermon_sim viennamesh)
 
 #Compatibility with Qt-Creator
 file( GLOB_RECURSE QtCreatorCompatibility_SRC
