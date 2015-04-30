@@ -4,12 +4,12 @@
 #include <mpi.h>
 
 // ViennaGrid includes
-#include "viennagrid/core.hpp"
-#include "viennagrid/io/vtk_reader.hpp"
-#include "viennagrid/io/vtk_writer.hpp"
+#include "viennagridpp/core.hpp"
+#include "viennagridpp/io/vtk_reader.hpp"
+#include "viennagridpp/io/vtk_writer.hpp"
 
 // ViennaMesh includes
-#include "viennamesh/algorithm_pipeline.hpp"
+#include "viennameshpp/algorithm_pipeline.hpp"
 
 // Local includes
 #include "viennagrid_mpi.hpp"
@@ -25,7 +25,7 @@ void process_local(viennamesh::context_handle & context,
 
   viennamesh::algorithm_handle mesh_writer = context.make_algorithm("mesh_writer");
   mesh_writer.set_default_source(mesher);
-  mesh_writer.set_input( "filename", "mpi_mesh_" + lexical_cast<std::string>(mpi_rank) + "_mesh.vtu" );
+  mesh_writer.set_input( "filename", "mpi_mesh_" + boost::lexical_cast<std::string>(mpi_rank) + "_mesh.vtu" );
   mesh_writer.run();
 }
 
@@ -90,7 +90,7 @@ int main(int argc, char* argv[])
     //
     for(int target = 1; target < mpi_size; target++)
     {
-      viennamesh::data_handle<viennagrid_mesh> mesh = split_mesh.get_output<viennagrid_mesh>( "mesh[" + lexical_cast<std::string>(target) + "]" );
+      viennamesh::data_handle<viennagrid_mesh> mesh = split_mesh.get_output<viennagrid_mesh>( "mesh[" + boost::lexical_cast<std::string>(target) + "]" );
 
       MeshHierarchyType mh = mesh().mesh_hierarchy();
       viennagrid::mpi::send(mh, target, MPI_COMM_WORLD);
