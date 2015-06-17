@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
   {
     std::string filename = argv[1];
 
-    viennamesh::algorithm_handle mesh_reader = context.make_algorithm("mesh_reader");
+    viennamesh::algorithm_handle mesh_reader = context.make_algorithm("plc_reader");
     mesh_reader.set_input( "filename", filename );
     mesh_reader.run();
 
