@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  typedef viennagrid::mesh_hierarchy_t MeshHierarchyType;
+  typedef viennagrid::mesh_hierarchy MeshHierarchyType;
   typedef viennagrid::result_of::mesh<MeshHierarchyType>::type MeshType;
 
   if(mpi_rank == 0)
@@ -47,11 +47,8 @@ int main(int argc, char* argv[])
       MeshType mesh = mesh_hierarchy.root();
       viennagrid::io::vtk_reader<MeshType> reader;
       reader(mesh, "../../data/tets_with_data_main.pvd");
-      viennagrid_serialized_mesh_hierarchy serialized_mesh;
-      viennagrid_serialized_mesh_hierarchy_make(&serialized_mesh);
-      mesh_hierarchy.serialize(serialized_mesh, true);
-      viennagrid::mpi::send(serialized_mesh, 1, MPI_COMM_WORLD);
-      viennagrid_serialized_mesh_hierarchy_delete(serialized_mesh);
+
+      viennagrid::mpi::send(mesh_hierarchy, 1, MPI_COMM_WORLD);
     }
   }
   else
@@ -69,14 +66,11 @@ int main(int argc, char* argv[])
     // Receive a serialized mesh
     {
       MeshHierarchyType mesh_hierarchy;
-      viennagrid_serialized_mesh_hierarchy serialized_mesh;
-      viennagrid_serialized_mesh_hierarchy_make(&serialized_mesh);
-      viennagrid::mpi::recv(serialized_mesh, 0, MPI_COMM_WORLD);
-      mesh_hierarchy.deserialize(serialized_mesh);
+      viennagrid::mpi::recv(mesh_hierarchy, 0, MPI_COMM_WORLD);
+
       viennagrid::io::vtk_writer<MeshType> writer;
       MeshType mesh = mesh_hierarchy.root();
       writer(mesh, "received_serialized_mesh");
-      viennagrid_serialized_mesh_hierarchy_delete(serialized_mesh);
     }
   }
 
