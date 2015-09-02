@@ -3,7 +3,7 @@ include ($ENV{VIENNAUTILSPATH}/cmake/vienna_build_common.cmake NO_POLICY_SCOPE)
 
 vienna_build_setup_project(ViennaPermon viennautils viennagrid viennamesh)
 
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_BINARY_DIR}/install/lib/cmake")
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_BINARY_DIR}/install/lib/cmake" "${PROJECT_SOURCE_DIR}/cmake")
 
 # CMake 2.8.2 is required as a minimum due to the
 # ExternalProject_Add mechanism supporting GIT repositories
@@ -32,6 +32,12 @@ IF(MPI_FOUND)
   INCLUDE_DIRECTORIES(${MPI_CXX_INCLUDE_PATH})
   SET(LIBRARIES ${LIBRARIES} ${MPI_CXX_LIBRARIES})
 ENDIF(MPI_FOUND)
+
+
+FIND_PACKAGE(LIBMESH REQUIRED)
+INCLUDE_DIRECTORIES(${LIBMESH_INCLUDE_DIR})
+SET(LIBRARIES ${LIBRARIES} ${LIBMESH_LIBRARIES})
+
 
 vienna_build_add_subprojects()
 
