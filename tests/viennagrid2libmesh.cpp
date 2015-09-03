@@ -8,11 +8,7 @@
 #include "viennagridpp/io/netgen_reader.hpp"
 
 // libMesh includes
-#include "libmesh/mesh.h"
 #include "libmesh/serial_mesh.h"
-#include "libmesh/point.h"
-#include "libmesh/node.h"
-#include "libmesh/elem.h"
 #include "libmesh/cell_tet4.h"
 #include "libmesh/gmsh_io.h"
 
