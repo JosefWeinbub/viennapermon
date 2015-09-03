@@ -13,6 +13,8 @@
 
 // Local includes
 #include "viennagrid_mpi.hpp"
+#include "viennagrid2libmesh.hpp"
+
 
 
 void process_local(viennamesh::context_handle & context,
@@ -26,6 +28,8 @@ void process_local(viennamesh::context_handle & context,
     mark_hull_regions.run();
   }
 
+  // generate local volume mesh
+  //
   viennamesh::algorithm_handle mesher = context.make_algorithm("netgen_make_mesh");
   mesher.set_default_source(mark_hull_regions);
   {
@@ -40,6 +44,13 @@ void process_local(viennamesh::context_handle & context,
     viennamesh::LoggingStack s("mesh_writer");
     mesh_writer.run();
   }
+
+  libMesh::SerialMesh libmesh;
+  viennagrid2libmesh(mesher.get_output<viennagrid_mesh>("mesh")(), libmesh);
+  libmesh.print_info();
+  
+
+
 }
 
 int main(int argc, char* argv[])

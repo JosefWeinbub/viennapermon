@@ -52,7 +52,7 @@ SET(LIBRARIES ${LIBRARIES} viennameshpp)
 
 IF(BUILD_TESTS)
   enable_testing()
-  ADD_SUBDIRECTORY(tests)
+#  ADD_SUBDIRECTORY(tests)
 ENDIF(BUILD_TESTS)
 
 #build the application
