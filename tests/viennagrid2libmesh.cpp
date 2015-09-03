@@ -21,8 +21,7 @@ int main(int argc, char* argv[])
   //  ----
   // Instantiate libMesh data structure and transfer ViennGrid mesh to it
   //  ----
-  libMesh::LibMeshInit init (argc, argv);
-  libMesh::SerialMesh libmesh(init.comm());
+  libMesh::SerialMesh libmesh;
   viennagrid2libmesh(vgrid_mesh, libmesh);
 
   //  ----
