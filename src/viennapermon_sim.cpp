@@ -4,9 +4,9 @@
 #include <mpi.h>
 
 // ViennaGrid includes
-#include "viennagridpp/core.hpp"
-#include "viennagridpp/io/vtk_reader.hpp"
-#include "viennagridpp/io/vtk_writer.hpp"
+#include "viennagrid/viennagrid.hpp"
+#include "viennagrid/io/vtk_reader.hpp"
+#include "viennagrid/io/vtk_writer.hpp"
 
 // ViennaMesh includes
 #include "viennameshpp/algorithm_pipeline.hpp"
@@ -48,20 +48,23 @@ void process_local(viennamesh::context_handle & context,
   libMesh::SerialMesh libmesh;
   viennagrid2libmesh(mesher.get_output<viennagrid_mesh>("mesh")(), libmesh);
   libmesh.print_info();
-  
+
 
 
 }
 
 int main(int argc, char* argv[])
 {
+  libMesh::LibMeshInit init (argc, argv);
+
   int mpi_size, mpi_rank;
   MPI_Init(&argc, &argv);
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
 
-  typedef viennagrid::mesh_hierarchy MeshHierarchyType;
-  typedef viennagrid::result_of::mesh<MeshHierarchyType>::type MeshType;
+
+
+  typedef viennagrid::mesh MeshType;
 
   if(argc != 2)
   {
@@ -77,7 +80,6 @@ int main(int argc, char* argv[])
     MPI_Finalize();
     return 1;
   }
-
 
   viennamesh::context_handle context;
 
@@ -153,8 +155,7 @@ int main(int argc, char* argv[])
     for(int target = 1; target < mpi_size; target++)
     {
       viennagrid::mesh mesh = split_mesh.get_output<viennagrid_mesh>("mesh[" + boost::lexical_cast<std::string>(target) + "]")();
-      MeshHierarchyType mh = mesh.get_mesh_hierarchy();
-      viennagrid::mpi::send(mh, target, MPI_COMM_WORLD);
+      viennagrid::mpi::send(mesh, target, MPI_COMM_WORLD);
     }
 
     // Master simulates the first partition
@@ -169,13 +170,12 @@ int main(int argc, char* argv[])
   {
     // Receive the local mesh which is to be processed/simulated
     //
-    MeshHierarchyType mesh_hierarchy;
-    viennagrid::mpi::recv(mesh_hierarchy, 0, MPI_COMM_WORLD);
-    MeshType mesh = mesh_hierarchy.root();
+    MeshType mesh;
+    viennagrid::mpi::recv(mesh, 0, MPI_COMM_WORLD);
 
     // Process/simulate the local mesh
     //
-    process_local(context, mpi_rank, mesh_hierarchy.root());
+    process_local(context, mpi_rank, mesh);
   }
 
   MPI_Finalize();
