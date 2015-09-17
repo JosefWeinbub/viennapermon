@@ -24,7 +24,7 @@ void viennagrid2libmesh(viennagrid::mesh const& vgrid_mesh, libMesh::SerialMesh&
   //
   unsigned int i = 0;
   viennagrid::mesh_point_accessor mesh_point_accessor(vgrid_mesh);
-  std::map<unsigned int, unsigned int> nodetrans;
+  std::map<viennagrid::element_id, unsigned int> nodetrans;
 
   VertexRange vgrid_vertices(vgrid_mesh);
   for (VertexIterator vit = vgrid_vertices.begin();  //STL-like iteration
@@ -49,12 +49,12 @@ void viennagrid2libmesh(viennagrid::mesh const& vgrid_mesh, libMesh::SerialMesh&
     for(VertexOnCellIterator vocit  = vertex_on_cells.begin();
                              vocit != vertex_on_cells.end();
                            ++vocit)
-    { 
+    {
       elem->set_node(j) = libmesh.node_ptr(libMesh::cast_int<libMesh::dof_id_type>( nodetrans[ (*vocit).id() ] ));
 
       j++;
     }
-    elem->set_id((*cit).id());
+    elem->set_id((*cit).id().index());
     libmesh.add_elem(elem);
  }
 }
