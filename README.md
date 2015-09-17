@@ -1,7 +1,7 @@
 # viennapermon
 
 This is the development repository for the joint effort of interfacing the Vienna* libraries with Permon* libraries.
-The goal is to build a large-scale distributed FETI application by making use of synergy effects provided by 
+The goal is to build a large-scale distributed FETI application by making use of synergy effects provided by
 different free open source scientific software infrastructures.
 
 Dependencies:
@@ -17,7 +17,7 @@ Dependencies:
 Environment variables:
 export VIENNAUTILSPATH=/path/to/your/viennautils-dev
 export VIENNAGRIDPATH=/path/to/your/viennagrid-dev
-export VIENNAMESHPATH=/path/to/your/viennamesh-dev 
+export VIENNAMESHPATH=/path/to/your/viennamesh-dev
 
 
 Configure:
@@ -28,6 +28,6 @@ cmake -DLIBMESH_DIR=/path/to/libmesh/instal/directory/ ..
 
 
 libMesh Build Instructions: (tested with 0.9.4)
-  ./configure --prefix=/install/path/ --disable-mpi
+  ./configure --prefix=/install/path/ --disable-mpi --disable-fortran --disable-tetgen
 
 
