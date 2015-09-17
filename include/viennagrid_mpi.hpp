@@ -39,12 +39,12 @@ void send(void * serialized_mesh, viennagrid_int serialized_mesh_size, int desti
  * @return void
  *
  */
-void send(viennagrid::mesh_hierarchy& mesh_hierarchy, int destination, MPI_Comm comm)
+void send(viennagrid::mesh & mesh, int destination, MPI_Comm comm)
 {
   void * serialized_mesh;
   viennagrid_int serialized_mesh_size;
 
-  mesh_hierarchy.serialize(&serialized_mesh, &serialized_mesh_size);
+  mesh.serialize(&serialized_mesh, &serialized_mesh_size);
 
   send(serialized_mesh, serialized_mesh_size, destination, comm);
 
@@ -75,14 +75,14 @@ void recv(void ** serialized_mesh, viennagrid_int * serialized_mesh_size, int so
  * @return void
  *
  */
-void recv(viennagrid::mesh_hierarchy& mesh_hierarchy, int source, MPI_Comm comm)
+void recv(viennagrid::mesh & mesh, int source, MPI_Comm comm)
 {
   viennagrid_int serialized_mesh_size;
   void * serialized_mesh;
 
   recv(&serialized_mesh, &serialized_mesh_size, source, comm);
 
-  mesh_hierarchy.deserialize(serialized_mesh, serialized_mesh_size);
+  mesh.deserialize(serialized_mesh, serialized_mesh_size);
 
   viennagrid_delete(&serialized_mesh);
 }
