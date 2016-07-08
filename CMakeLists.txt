@@ -46,6 +46,19 @@ foreach(DEF ${LIBMESH_DEFINITIONS})
 endforeach(DEF)
 
 
+# Configure subproject: ViennaMesh
+option(ENABLE_PLUGIN_TRIANGLE "Enable netgen plugin" OFF)
+option(ENABLE_PLUGIN_IO "Enable io plugin" OFF)
+option(ENABLE_PLUGIN_TETGEN "Enable netgen plugin" OFF)
+option(ENABLE_PLUGIN_NETGEN "Enable netgen plugin" OFF)
+option(ENABLE_PLUGIN_CGAL "Enable cgal plugin" OFF)
+option(ENABLE_PLUGIN_POISSON "Enable poisson plugin" OFF)
+option(ENABLE_PLUGIN_METIS "Enable metis plugin" OFF)
+option(ENABLE_PLUGIN_TDR "Enable TDR plugin" OFF)
+option(ENABLE_PLUGIN_SYMMETRY "Enable symmetry plugin" OFF)
+option(ENABLE_PLUGIN_STATISTICS "Enable symmetry plugin" OFF)
+option(ENABLE_PLUGIN_MESH_HEALING "Enable mesh healing plugin" OFF)
+option(ENABLE_PLUGIN_EXAMPLES "Enable examples plugin" OFF)
 
 vienna_build_add_subprojects()
 
@@ -57,6 +70,7 @@ SET(LIBRARIES ${LIBRARIES} viennagridpp)
 
 # ViennaMesh
 SET(LIBRARIES ${LIBRARIES} viennameshpp)
+
 
 IF(BUILD_TESTS)
   enable_testing()

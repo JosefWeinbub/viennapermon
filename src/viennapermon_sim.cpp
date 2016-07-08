@@ -45,9 +45,9 @@ void process_local(viennamesh::context_handle & context,
     mesh_writer.run();
   }
 
-  libMesh::SerialMesh libmesh;
-  viennagrid2libmesh(mesher.get_output<viennagrid_mesh>("mesh")(), libmesh);
-  libmesh.print_info();
+//  libMesh::SerialMesh libmesh;
+//  viennagrid2libmesh(mesher.get_output<viennagrid_mesh>("mesh")(), libmesh);
+//  libmesh.print_info();
 
 
 
@@ -55,14 +55,12 @@ void process_local(viennamesh::context_handle & context,
 
 int main(int argc, char* argv[])
 {
-  libMesh::LibMeshInit init (argc, argv);
+//  libMesh::LibMeshInit init (argc, argv);
 
   int mpi_size, mpi_rank;
   MPI_Init(&argc, &argv);
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-
-
 
   typedef viennagrid::mesh MeshType;
 
@@ -73,6 +71,8 @@ int main(int argc, char* argv[])
     MPI_Finalize();
     return 1;
   }
+
+
 
   if(mpi_size < 2)
   {
