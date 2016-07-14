@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
   if(argc != 2)
   {
     if(mpi_rank == 0)
-      std::cout << "Missing parameter - Usage: " << argv[0] << " input_meshfile.pvd" << std::endl;
+      std::cout << "Missing parameter - Usage: " << argv[0] << " input_meshfile.poly" << std::endl;
     MPI_Finalize();
     return 1;
   }
