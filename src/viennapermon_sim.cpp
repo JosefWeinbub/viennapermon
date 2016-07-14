@@ -14,13 +14,18 @@
 // Local includes
 #include "viennagrid_mpi.hpp"
 #include "viennagrid2libmesh.hpp"
+#include "libmesh/gmsh_io.h"
+//#include "libmesh/vtk_io.h"
+//#include "libmesh/exodusII_io.h"
 
-
-
-void process_local(viennamesh::context_handle & context,
-                   int mpi_rank,
-                   viennagrid::mesh mesh_local)
+void process_local(viennamesh::context_handle& context,
+                   viennagrid::mesh& mesh_local,
+                   libMesh::LibMeshInit& init)
 {
+  int mpi_size, mpi_rank;
+  MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+
   viennamesh::algorithm_handle mark_hull_regions = context.make_algorithm("mark_hull_regions");
   mark_hull_regions.set_input( "mesh", mesh_local.internal() );
   {
@@ -37,25 +42,33 @@ void process_local(viennamesh::context_handle & context,
     mesher.run();
   }
 
-  viennamesh::algorithm_handle mesh_writer = context.make_algorithm("mesh_writer");
-  mesh_writer.set_default_source(mesher);
-  mesh_writer.set_input( "filename", "mpi_mesh_" + boost::lexical_cast<std::string>(mpi_rank) + "_mesh.vtu" );
-  {
-    viennamesh::LoggingStack s("mesh_writer");
-    mesh_writer.run();
-  }
+//  viennamesh::algorithm_handle mesh_writer = context.make_algorithm("mesh_writer");
+//  mesh_writer.set_default_source(mesher);
+//  mesh_writer.set_input( "filename", "mpi_mesh_" + boost::lexical_cast<std::string>(mpi_rank) + "_mesh.vtu" );
+//  {
+//    viennamesh::LoggingStack s("mesh_writer");
+//    mesh_writer.run();
+//  }
 
-//  libMesh::SerialMesh libmesh;
-//  viennagrid2libmesh(mesher.get_output<viennagrid_mesh>("mesh")(), libmesh);
-//  libmesh.print_info();
+  libMesh::SerialMesh libmesh(init.comm());
+  viennagrid2libmesh(mesher.get_output<viennagrid_mesh>("mesh")(), libmesh);
+  libmesh.print_info();
 
+//  libMesh::VTKIO io(libmesh);
+//  std::string local_mesh_filename = std::string("local_libmesh_p"+std::to_string(mpi_rank)+".pvtu");
+//  libMesh::GmshIO io(libmesh);
+//  std::string local_mesh_filename = std::string("local_libmesh_p"+std::to_string(mpi_rank)+".msh");
+//  libMesh::ExodusII_IO io(libmesh);
+//  std::string local_mesh_filename = std::string("local_libmesh_p"+std::to_string(mpi_rank)+".e");
+//  std::cout << "[" << mpi_rank << "]" << " writing local libmesh to: " << local_mesh_filename << std::endl;
+//  io.write(local_mesh_filename);
 
 
 }
 
 int main(int argc, char* argv[])
 {
-//  libMesh::LibMeshInit init (argc, argv);
+  libMesh::LibMeshInit init (argc, argv);
 
   int mpi_size, mpi_rank;
   MPI_Init(&argc, &argv);
@@ -80,6 +93,12 @@ int main(int argc, char* argv[])
     MPI_Finalize();
     return 1;
   }
+
+//#ifndef LIBMESH_HAVE_VTK
+//  std::cout << "libMesh must be built with VTK support - aborting!" << std::endl;
+//  MPI_Finalize();
+//  return 1;
+//#endif
 
   viennamesh::context_handle context;
 
@@ -163,7 +182,7 @@ int main(int argc, char* argv[])
 
 //     viennagrid::mesh mesh = meshes(0);
     viennagrid::mesh mesh = split_mesh.get_output<viennagrid_mesh>("mesh[0]")();
-    process_local(context, mpi_rank, mesh);
+    process_local(context, mesh, init);
   }
   // Worker processes
   else
@@ -175,7 +194,7 @@ int main(int argc, char* argv[])
 
     // Process/simulate the local mesh
     //
-    process_local(context, mpi_rank, mesh);
+    process_local(context, mesh, init);
   }
 
   MPI_Finalize();

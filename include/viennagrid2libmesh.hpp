@@ -4,7 +4,7 @@
 // libMesh includes
 #include "libmesh/serial_mesh.h"
 #include "libmesh/cell_tet4.h"
-#include "libmesh/gmsh_io.h"
+
 
 void viennagrid2libmesh(viennagrid::mesh const& vgrid_mesh, libMesh::SerialMesh& libmesh)
 {

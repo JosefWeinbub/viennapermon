@@ -21,7 +21,7 @@ export VIENNAMESHPATH=/path/to/your/viennamesh-dev
 
 
 Configure:
-CXX=mpicxx CC=mpicc cmake -DLIBMESH_DIR=$LIBMESH_DIR/  ..
+CXX=mpicxx CC=mpicc cmake -DLIBMESH_DIR=$LIBMESH_DIR/ ..
 
 
 
