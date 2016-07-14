@@ -4,6 +4,7 @@
 // libMesh includes
 #include "libmesh/serial_mesh.h"
 #include "libmesh/cell_tet4.h"
+#include "libmesh/boundary_info.h"
 
 
 void viennagrid2libmesh(viennagrid::mesh const& vgrid_mesh, libMesh::SerialMesh& libmesh)
@@ -19,6 +20,9 @@ void viennagrid2libmesh(viennagrid::mesh const& vgrid_mesh, libMesh::SerialMesh&
 
   libmesh.clear();
   libmesh.set_mesh_dimension(3);
+  libmesh.set_spatial_dimension(3);
+
+  libMesh::BoundaryInfo & boundary_info = libmesh.get_boundary_info();
 
   // transfer geometry
   //
@@ -52,11 +56,18 @@ void viennagrid2libmesh(viennagrid::mesh const& vgrid_mesh, libMesh::SerialMesh&
     {
       elem->set_node(j) = libmesh.node_ptr(libMesh::cast_int<libMesh::dof_id_type>( nodetrans[ (*vocit).id() ] ));
 
+/*
+      TODO: identify the 'sides'
+      boundary_info.add_side(elem, 0, 0);
+
+*/
+
       j++;
     }
     elem->set_id((*cit).id().index());
     libmesh.add_elem(elem);
  }
+  libmesh.prepare_for_use (/*skip_renumber =*/ false);
 }
 
 

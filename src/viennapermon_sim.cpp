@@ -17,6 +17,389 @@
 #include "libmesh/gmsh_io.h"
 //#include "libmesh/vtk_io.h"
 //#include "libmesh/exodusII_io.h"
+#include "libmesh/equation_systems.h"
+#include "libmesh/linear_implicit_system.h"
+#include "libmesh/libmesh.h"
+#include "libmesh/mesh.h"
+#include "libmesh/mesh_generation.h"
+#include "libmesh/fe.h"
+#include "libmesh/quadrature_gauss.h"
+#include "libmesh/dof_map.h"
+#include "libmesh/sparse_matrix.h"
+#include "libmesh/numeric_vector.h"
+#include "libmesh/dense_matrix.h"
+//#include "libmesh/petsc_matrix.h"
+#include "libmesh/dense_vector.h"
+//#include "libmesh/petsc_vector.h"
+#include "libmesh/perf_log.h"
+#include "libmesh/elem.h"
+#include "libmesh/dirichlet_boundaries.h"
+#include "libmesh/analytic_function.h"
+#include "libmesh/string_to_enum.h"
+#include "libmesh/getpot.h"
+
+// boundary IDs
+#define BOUNDARY_ID_MIN_Z 0
+#define BOUNDARY_ID_MIN_Y 1
+#define BOUNDARY_ID_MAX_X 2
+#define BOUNDARY_ID_MAX_Y 3
+#define BOUNDARY_ID_MIN_X 4
+#define BOUNDARY_ID_MAX_Z 5
+#define NODE_BOUNDARY_ID 10
+#define EDGE_BOUNDARY_ID 20
+
+void tag_boundaries(libMesh::SerialMesh& mesh, std::set<libMesh::boundary_id_type>& boundary_ids)
+{
+  mesh.get_boundary_info().clear();
+  libMesh::SerialMesh::const_element_iterator         el     = mesh.elements_begin();
+  const libMesh::SerialMesh::const_element_iterator   end_el = mesh.elements_end();
+  for ( ; el != end_el; ++el)
+  {
+    const libMesh::Elem * elem = *el;
+
+      unsigned int
+        side_max_x = 0, side_min_y = 0,
+        side_max_y = 0, side_max_z = 0;
+
+      bool
+        found_side_max_x = false, found_side_max_y = false,
+        found_side_min_y = false, found_side_max_z = false;
+
+      for (unsigned int side=0; side<elem->n_sides(); side++)
+        {
+          if (mesh.get_boundary_info().has_boundary_id(elem, side, BOUNDARY_ID_MAX_X))
+            {
+              side_max_x = side;
+              found_side_max_x = true;
+            }
+
+          if (mesh.get_boundary_info().has_boundary_id(elem, side, BOUNDARY_ID_MIN_Y))
+            {
+              side_min_y = side;
+              found_side_min_y = true;
+            }
+
+          if (mesh.get_boundary_info().has_boundary_id(elem, side, BOUNDARY_ID_MAX_Y))
+            {
+              side_max_y = side;
+              found_side_max_y = true;
+            }
+
+          if (mesh.get_boundary_info().has_boundary_id(elem, side, BOUNDARY_ID_MAX_Z))
+            {
+              side_max_z = side;
+              found_side_max_z = true;
+            }
+        }
+
+      // If elem has sides on boundaries
+      // BOUNDARY_ID_MAX_X, BOUNDARY_ID_MAX_Y, BOUNDARY_ID_MAX_Z
+      // then let's set a node boundary condition
+      if (found_side_max_x && found_side_max_y && found_side_max_z)
+        for (unsigned int n=0; n<elem->n_nodes(); n++)
+          if (elem->is_node_on_side(n, side_max_x) &&
+              elem->is_node_on_side(n, side_max_y) &&
+              elem->is_node_on_side(n, side_max_z))
+          {
+            std::cout << "adding node " << n << std::endl;
+            mesh.get_boundary_info().add_node(elem->node_ptr(n), NODE_BOUNDARY_ID);
+          }
+
+
+      // If elem has sides on boundaries
+      // BOUNDARY_ID_MAX_X and BOUNDARY_ID_MIN_Y
+      // then let's set an edge boundary condition
+      if (found_side_max_x && found_side_min_y)
+        for (unsigned int e=0; e<elem->n_edges(); e++)
+          if (elem->is_edge_on_side(e, side_max_x) &&
+              elem->is_edge_on_side(e, side_min_y))
+          {
+            std::cout << "adding ele " << e << std::endl;
+            mesh.get_boundary_info().add_edge(elem, e, EDGE_BOUNDARY_ID);
+          }
+  }
+
+  if(mesh.get_boundary_info().n_boundary_ids() == 0)
+  {
+    std::cout << "Error: No boundary ids tagged " << std::endl;
+  }
+
+  boundary_ids.insert(BOUNDARY_ID_MIN_X);
+  boundary_ids.insert(NODE_BOUNDARY_ID);
+  boundary_ids.insert(EDGE_BOUNDARY_ID);
+}
+
+libMesh::Real exact_solution (const libMesh::Real x,
+                     const libMesh::Real y,
+                     const libMesh::Real z = 0.)
+{
+  static const libMesh::Real pi = acos(-1.);
+
+  return cos(.5*pi*x)*sin(.5*pi*y)*cos(.5*pi*z);
+}
+
+// Define a wrapper for exact_solution that will be needed below
+void exact_solution_wrapper (libMesh::DenseVector<libMesh::Number> & output,
+                             const libMesh::Point & p,
+                             const libMesh::Real)
+{
+  output(0) = exact_solution(p(0),
+                             (LIBMESH_DIM>1)?p(1):0,
+                             (LIBMESH_DIM>2)?p(2):0);
+}
+
+
+// We now define the matrix assembly function for the
+// Poisson system.  We need to first compute element
+// matrices and right-hand sides, and then take into
+// account the boundary conditions.
+void assemble_poisson(libMesh::EquationSystems & es,
+                      const std::string & system_name)
+{
+
+  // Declare a performance log.  Give it a descriptive
+  // string to identify what part of the code we are
+  // logging, since there may be many PerfLogs in an
+  // application.
+  libMesh::PerfLog perf_log ("Matrix Assembly");
+
+  // Get a constant reference to the mesh object.
+  const libMesh::MeshBase & mesh = es.get_mesh();
+
+  // The dimension that we are running
+  const unsigned int dim = mesh.mesh_dimension();
+
+  // Get a reference to the LinearImplicitSystem we are solving
+  libMesh::LinearImplicitSystem & system = es.get_system<libMesh::LinearImplicitSystem>("Poisson");
+
+  // A reference to the DofMap object for this system.  The DofMap
+  // object handles the index translation from node and element numbers
+  // to degree of freedom numbers.  We will talk more about the DofMap
+  // in future examples.
+  const libMesh::DofMap & dof_map = system.get_dof_map();
+
+  // Get a constant reference to the Finite Element type
+  // for the first (and only) variable in the system.
+  libMesh::FEType fe_type = dof_map.variable_type(0);
+
+  // Build a Finite Element object of the specified type.  Since the
+  // FEBase::build() member dynamically creates memory we will
+  // store the object as a UniquePtr<FEBase>.  This can be thought
+  // of as a pointer that will clean up after itself.
+  libMesh::UniquePtr<libMesh::FEBase> fe (libMesh::FEBase::build(dim, fe_type));
+
+  // A 5th order Gauss quadrature rule for numerical integration.
+  libMesh::QGauss qrule (dim, libMesh::FIFTH);
+
+  // Tell the finite element object to use our quadrature rule.
+  fe->attach_quadrature_rule (&qrule);
+
+  // Declare a special finite element object for
+  // boundary integration.
+  libMesh::UniquePtr<libMesh::FEBase> fe_face (libMesh::FEBase::build(dim, fe_type));
+
+  // Boundary integration requires one quadraure rule,
+  // with dimensionality one less than the dimensionality
+  // of the element.
+  libMesh::QGauss qface(dim-1, libMesh::FIFTH);
+
+  // Tell the finte element object to use our
+  // quadrature rule.
+  fe_face->attach_quadrature_rule (&qface);
+
+  // Here we define some references to cell-specific data that
+  // will be used to assemble the linear system.
+  // We begin with the element Jacobian * quadrature weight at each
+  // integration point.
+  const std::vector<libMesh::Real> & JxW = fe->get_JxW();
+
+  // The physical XY locations of the quadrature points on the element.
+  // These might be useful for evaluating spatially varying material
+  // properties at the quadrature points.
+  const std::vector<libMesh::Point> & q_point = fe->get_xyz();
+
+  // The element shape functions evaluated at the quadrature points.
+  const std::vector<std::vector<libMesh::Real> > & phi = fe->get_phi();
+
+  // The element shape function gradients evaluated at the quadrature
+  // points.
+  const std::vector<std::vector<libMesh::RealGradient> > & dphi = fe->get_dphi();
+
+  // Define data structures to contain the element matrix
+  // and right-hand-side vector contribution.  Following
+  // basic finite element terminology we will denote these
+  // "Ke" and "Fe". More detail is in example 3.
+  libMesh::DenseMatrix<libMesh::Number> Ke;
+  libMesh::DenseVector<libMesh::Number> Fe;
+
+  // This vector will hold the degree of freedom indices for
+  // the element.  These define where in the global system
+  // the element degrees of freedom get mapped.
+  std::vector<libMesh::dof_id_type> dof_indices;
+
+  // Now we will loop over all the elements in the mesh.
+  // We will compute the element matrix and right-hand-side
+  // contribution.  See example 3 for a discussion of the
+  // element iterators.
+//  libMesh::MeshBase::const_element_iterator       el     = mesh.active_local_elements_begin();
+//  const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
+  libMesh::MeshBase::const_element_iterator       el     = mesh.elements_begin();
+  const libMesh::MeshBase::const_element_iterator end_el = mesh.elements_end();
+
+  for ( ; el != end_el; ++el)
+    { 
+      // Start logging the shape function initialization.
+      // This is done through a simple function call with
+      // the name of the event to log.
+      perf_log.push("elem init");
+
+      // Store a pointer to the element we are currently
+      // working on.  This allows for nicer syntax later.
+      const libMesh::Elem * elem = *el;
+
+      // Get the degree of freedom indices for the
+      // current element.  These define where in the global
+      // matrix and right-hand-side this element will
+      // contribute to.
+      dof_map.dof_indices (elem, dof_indices);
+
+      // Compute the element-specific data for the current
+      // element.  This involves computing the location of the
+      // quadrature points (q_point) and the shape functions
+      // (phi, dphi) for the current element.
+      fe->reinit (elem);
+
+      // Zero the element matrix and right-hand side before
+      // summing them.  We use the resize member here because
+      // the number of degrees of freedom might have changed from
+      // the last element.  Note that this will be the case if the
+      // element type is different (i.e. the last element was a
+      // triangle, now we are on a quadrilateral).
+      Ke.resize (dof_indices.size(),
+                 dof_indices.size());
+
+      Fe.resize (dof_indices.size());
+
+      // Stop logging the shape function initialization.
+      // If you forget to stop logging an event the PerfLog
+      // object will probably catch the error and abort.
+      perf_log.pop("elem init");
+
+      // Now we will build the element matrix.  This involves
+      // a double loop to integrate the test funcions (i) against
+      // the trial functions (j).
+      //
+      // We have split the numeric integration into two loops
+      // so that we can log the matrix and right-hand-side
+      // computation seperately.
+      //
+      // Now start logging the element matrix computation
+      perf_log.push ("Ke");
+
+      for (unsigned int qp=0; qp<qrule.n_points(); qp++)
+        for (unsigned int i=0; i<phi.size(); i++)
+          for (unsigned int j=0; j<phi.size(); j++)
+            Ke(i,j) += JxW[qp]*(dphi[i][qp]*dphi[j][qp]);
+
+
+      // Stop logging the matrix computation
+      perf_log.pop ("Ke");
+
+      // Now we build the element right-hand-side contribution.
+      // This involves a single loop in which we integrate the
+      // "forcing function" in the PDE against the test functions.
+      //
+      // Start logging the right-hand-side computation
+      perf_log.push ("Fe");
+
+      for (unsigned int qp=0; qp<qrule.n_points(); qp++)
+        {
+          // fxy is the forcing function for the Poisson equation.
+          // In this case we set fxy to be a finite difference
+          // Laplacian approximation to the (known) exact solution.
+          //
+          // We will use the second-order accurate FD Laplacian
+          // approximation, which in 2D on a structured grid is
+          //
+          // u_xx + u_yy = (u(i-1,j) + u(i+1,j) +
+          //                u(i,j-1) + u(i,j+1) +
+          //                -4*u(i,j))/h^2
+          //
+          // Since the value of the forcing function depends only
+          // on the location of the quadrature point (q_point[qp])
+          // we will compute it here, outside of the i-loop
+          const libMesh::Real x = q_point[qp](0);
+#if LIBMESH_DIM > 1
+          const libMesh::Real y = q_point[qp](1);
+#else
+          const libMesh::Real y = 0.;
+#endif
+#if LIBMESH_DIM > 2
+          const libMesh::Real z = q_point[qp](2);
+#else
+          const libMesh::Real z = 0.;
+#endif
+          const libMesh::Real eps = 1.e-3;
+
+          const libMesh::Real uxx = (exact_solution(x-eps, y, z) +
+                            exact_solution(x+eps, y, z) +
+                            -2.*exact_solution(x, y, z))/eps/eps;
+
+          const libMesh::Real uyy = (exact_solution(x, y-eps, z) +
+                            exact_solution(x, y+eps, z) +
+                            -2.*exact_solution(x, y, z))/eps/eps;
+
+          const libMesh::Real uzz = (exact_solution(x, y, z-eps) +
+                            exact_solution(x, y, z+eps) +
+                            -2.*exact_solution(x, y, z))/eps/eps;
+
+          libMesh::Real fxy;
+          if (dim==1)
+            {
+              // In 1D, compute the rhs by differentiating the
+              // exact solution twice.
+              const libMesh::Real pi = libMesh::pi;
+              fxy = (0.25*pi*pi)*sin(.5*pi*x);
+            }
+          else
+            {
+              fxy = - (uxx + uyy + ((dim==2) ? 0. : uzz));
+            }
+
+          // Add the RHS contribution
+          for (unsigned int i=0; i<phi.size(); i++)
+            Fe(i) += JxW[qp]*fxy*phi[i][qp];
+        }
+
+      // Stop logging the right-hand-side computation
+      perf_log.pop ("Fe");
+
+      // If this assembly program were to be used on an adaptive mesh,
+      // we would have to apply any hanging node constraint equations
+      // Also, note that here we call heterogenously_constrain_element_matrix_and_vector
+      // to impose a inhomogeneous Dirichlet boundary conditions.
+      dof_map.heterogenously_constrain_element_matrix_and_vector (Ke, Fe, dof_indices);
+
+      // The element matrix and right-hand-side are now built
+      // for this element.  Add them to the global matrix and
+      // right-hand-side vector.  The SparseMatrix::add_matrix()
+      // and NumericVector::add_vector() members do this for us.
+      // Start logging the insertion of the local (element)
+      // matrix and vector into the global matrix and vector
+      perf_log.push ("matrix insertion");
+
+      system.matrix->add_matrix (Ke, dof_indices);
+      system.rhs->add_vector    (Fe, dof_indices);
+
+      // Start logging the insertion of the local (element)
+      // matrix and vector into the global matrix and vector
+      perf_log.pop ("matrix insertion");
+    }
+
+  // That's it.  We don't need to do anything else to the
+  // PerfLog.  When it goes out of scope (at this function return)
+  // it will print its log to the screen. Pretty easy, huh?
+}
 
 void process_local(viennamesh::context_handle& context,
                    viennagrid::mesh& mesh_local,
@@ -50,8 +433,29 @@ void process_local(viennamesh::context_handle& context,
 //    mesh_writer.run();
 //  }
 
+
   libMesh::SerialMesh libmesh(init.comm());
-  viennagrid2libmesh(mesher.get_output<viennagrid_mesh>("mesh")(), libmesh);
+// ---------------------------------------------------------------------
+  viennagrid::mesh const& local_vgrid_mesh = mesher.get_output<viennagrid_mesh>("mesh")();
+  viennagrid2libmesh(local_vgrid_mesh, libmesh);
+// ---------------------------------------------------------------------
+//  int ps = 15;
+//  int dim = 3;
+//  libMesh::Real halfwidth = dim > 1 ? 1. : 0.;
+//  libMesh::Real halfheight = dim > 2 ? 1. : 0.;
+//  libMesh::MeshTools::Generation::build_cube (libmesh,
+//                                     ps,
+//                                     (dim>1) ? ps : 0,
+//                                     (dim>2) ? ps : 0,
+//                                     -1., 1.,
+//                                     -halfwidth, halfwidth,
+//                                     -halfheight, halfheight,
+//                                     (dim==1)    ? libMesh::EDGE2 :
+//                                     ((dim == 2) ? libMesh::QUAD4 : libMesh::HEX8));
+// ---------------------------------------------------------------------
+
+
+
   libmesh.print_info();
 
 //  libMesh::VTKIO io(libmesh);
@@ -63,8 +467,65 @@ void process_local(viennamesh::context_handle& context,
 //  std::cout << "[" << mpi_rank << "]" << " writing local libmesh to: " << local_mesh_filename << std::endl;
 //  io.write(local_mesh_filename);
 
+  // Create an equation systems object.
+  libMesh::EquationSystems equation_systems (libmesh);
 
+  // Declare the system and its variables.
+  // Create a system named "Poisson"
+  libMesh::LinearImplicitSystem & system =
+    equation_systems.add_system<libMesh::LinearImplicitSystem> ("Poisson");
+
+  std::string order = "FIRST";
+  std::string family = "LAGRANGE";
+
+  // Add the variable "u" to "Poisson".  "u"
+  // will be approximated using second-order approximation.
+  unsigned int u_var = system.add_variable("u",
+                                           libMesh::Utility::string_to_enum<libMesh::Order>   (order),
+                                           libMesh::Utility::string_to_enum<libMesh::FEFamily>(family));
+
+  // Give the system a pointer to the matrix assembly
+  // function.
+  system.attach_assemble_function (assemble_poisson);
+
+  // Construct a Dirichlet boundary condition object
+
+  // Indicate which boundary IDs we impose the BC on
+  // We either build a line, a square or a cube, and
+  // here we indicate the boundaries IDs in each case
+  std::set<libMesh::boundary_id_type> boundary_ids;
+
+  // identify boundary nodes/elements
+  tag_boundaries(libmesh, boundary_ids);
+
+  // Create a vector storing the variable numbers which the BC applies to
+  std::vector<unsigned int> variables(1);
+  variables[0] = u_var;
+
+  // Create an AnalyticFunction object that we use to project the BC
+  // This function just calls the function exact_solution via exact_solution_wrapper
+  libMesh::AnalyticFunction<> exact_solution_object(exact_solution_wrapper);
+
+  libMesh::DirichletBoundary dirichlet_bc(boundary_ids,
+                                 variables,
+                                 &exact_solution_object);
+
+  // We must add the Dirichlet boundary condition _before_
+  // we call equation_systems.init()
+  system.get_dof_map().add_dirichlet_boundary(dirichlet_bc);
+
+
+  // Initialize the data structures for the equation system.
+  equation_systems.init();
+
+  // Print information about the system to the screen.
+  equation_systems.print_info();
+  libmesh.print_info();
+
+  // Solve the system "Poisson", just like example 2.
+  system.solve();
 }
+
 
 int main(int argc, char* argv[])
 {
