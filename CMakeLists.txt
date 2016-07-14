@@ -58,7 +58,7 @@ option(ENABLE_PLUGIN_TDR "Enable TDR plugin" OFF)
 option(ENABLE_PLUGIN_SYMMETRY "Enable symmetry plugin" OFF)
 option(ENABLE_PLUGIN_STATISTICS "Enable symmetry plugin" OFF)
 option(ENABLE_PLUGIN_MESH_HEALING "Enable mesh healing plugin" OFF)
-option(ENABLE_PLUGIN_EXAMPLES "Enable examples plugin" OFF)
+option(BUILD_EXAMPLES "Build examples" OFF)
 
 vienna_build_add_subprojects()
 
