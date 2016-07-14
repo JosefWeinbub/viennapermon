@@ -93,6 +93,11 @@ ENDIF(BUILD_TESTS)
 ADD_EXECUTABLE(viennapermon_sim     src/viennapermon_sim.cpp)
 TARGET_LINK_LIBRARIES(viennapermon_sim ${LIBRARIES})
 
+ADD_EXECUTABLE(libmetis_partitioner     src/libmetis_partitioner.cpp)
+TARGET_LINK_LIBRARIES(libmetis_partitioner ${LIBRARIES})
+
+
+
 #Compatibility with Qt-Creator
 file( GLOB_RECURSE QtCreatorCompatibility_SRC
     viennamini/*.hpp viennamini/*.h)

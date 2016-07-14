@@ -38,6 +38,7 @@
 #include "libmesh/string_to_enum.h"
 #include "libmesh/getpot.h"
 
+
 // boundary IDs
 #define BOUNDARY_ID_MIN_Z 0
 #define BOUNDARY_ID_MIN_Y 1
@@ -453,10 +454,6 @@ void process_local(viennamesh::context_handle& context,
 //                                     (dim==1)    ? libMesh::EDGE2 :
 //                                     ((dim == 2) ? libMesh::QUAD4 : libMesh::HEX8));
 // ---------------------------------------------------------------------
-
-
-
-  libmesh.print_info();
 
 //  libMesh::VTKIO io(libmesh);
 //  std::string local_mesh_filename = std::string("local_libmesh_p"+std::to_string(mpi_rank)+".pvtu");
