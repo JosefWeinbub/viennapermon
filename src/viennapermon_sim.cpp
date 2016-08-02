@@ -37,97 +37,141 @@
 #include "libmesh/analytic_function.h"
 #include "libmesh/string_to_enum.h"
 #include "libmesh/getpot.h"
-
+#include "libmesh/boundary_info.h"
 
 // boundary IDs
-#define BOUNDARY_ID_MIN_Z 0
-#define BOUNDARY_ID_MIN_Y 1
-#define BOUNDARY_ID_MAX_X 2
-#define BOUNDARY_ID_MAX_Y 3
-#define BOUNDARY_ID_MIN_X 4
-#define BOUNDARY_ID_MAX_Z 5
-#define NODE_BOUNDARY_ID 10
-#define EDGE_BOUNDARY_ID 20
+//#define LIBMESH_BOUNDARY_ID 100
+#define DIRICHLET_1 1
+#define DIRICHLET_2 2
 
 void tag_boundaries(libMesh::SerialMesh& mesh, std::set<libMesh::boundary_id_type>& boundary_ids)
 {
-  mesh.get_boundary_info().clear();
-  libMesh::SerialMesh::const_element_iterator         el     = mesh.elements_begin();
-  const libMesh::SerialMesh::const_element_iterator   end_el = mesh.elements_end();
+
+  // Add boundary IDs to this mesh so that we can use DirichletBoundary
+  libMesh::MeshBase::const_element_iterator       el     = mesh.elements_begin();
+  const libMesh::MeshBase::const_element_iterator end_el = mesh.elements_end();
   for ( ; el != end_el; ++el)
   {
     const libMesh::Elem * elem = *el;
 
-      unsigned int
-        side_max_x = 0, side_min_y = 0,
-        side_max_y = 0, side_max_z = 0;
+    for (unsigned int side=0; side < elem->n_sides(); side++)
+    {
+      if(elem->neighbor(side) == NULL)
+      {
+        // this side is a boundary side
+//        mesh.get_boundary_info().add_side(elem, side, LIBMESH_BOUNDARY_ID);
 
-      bool
-        found_side_max_x = false, found_side_max_y = false,
-        found_side_min_y = false, found_side_max_z = false;
-
-      for (unsigned int side=0; side<elem->n_sides(); side++)
-        {
-          if (mesh.get_boundary_info().has_boundary_id(elem, side, BOUNDARY_ID_MAX_X))
-            {
-              side_max_x = side;
-              found_side_max_x = true;
-            }
-
-          if (mesh.get_boundary_info().has_boundary_id(elem, side, BOUNDARY_ID_MIN_Y))
-            {
-              side_min_y = side;
-              found_side_min_y = true;
-            }
-
-          if (mesh.get_boundary_info().has_boundary_id(elem, side, BOUNDARY_ID_MAX_Y))
-            {
-              side_max_y = side;
-              found_side_max_y = true;
-            }
-
-          if (mesh.get_boundary_info().has_boundary_id(elem, side, BOUNDARY_ID_MAX_Z))
-            {
-              side_max_z = side;
-              found_side_max_z = true;
-            }
-        }
-
-      // If elem has sides on boundaries
-      // BOUNDARY_ID_MAX_X, BOUNDARY_ID_MAX_Y, BOUNDARY_ID_MAX_Z
-      // then let's set a node boundary condition
-      if (found_side_max_x && found_side_max_y && found_side_max_z)
+        // traverse the nodes of the boundary side
         for (unsigned int n=0; n<elem->n_nodes(); n++)
-          if (elem->is_node_on_side(n, side_max_x) &&
-              elem->is_node_on_side(n, side_max_y) &&
-              elem->is_node_on_side(n, side_max_z))
+        {
+          if (elem->is_node_on_side(n, side))
           {
-            std::cout << "adding node " << n << std::endl;
-            mesh.get_boundary_info().add_node(elem->node_ptr(n), NODE_BOUNDARY_ID);
+//            std::cout << mesh.point(elem->node(n)) << std::endl; 
+            if( (mesh.point(elem->node(n))(0) >= 0.0) && (mesh.point(elem->node(n))(0) <= 0.5) &&
+                (mesh.point(elem->node(n))(1) >= 0.0) && (mesh.point(elem->node(n))(1) <= 0.5) &&
+                (mesh.point(elem->node(n))(2) == 0.0) )
+            {
+              std::cout << "adding dirichlet 1 node " << n << std::endl;
+              mesh.get_boundary_info().add_node(elem->node_ptr(n), DIRICHLET_1);
+            }
+            else 
+            if( (mesh.point(elem->node(n))(0) >= 0.0) && (mesh.point(elem->node(n))(0) <= 0.5) &&
+                (mesh.point(elem->node(n))(1) >= 0.0) && (mesh.point(elem->node(n))(1) <= 0.5) &&
+                (mesh.point(elem->node(n))(2) == 1.0) )
+            {
+              std::cout << "adding dirichlet 2 node " << n << std::endl;
+              mesh.get_boundary_info().add_node(elem->node_ptr(n), DIRICHLET_2);
+            }
           }
-
-
-      // If elem has sides on boundaries
-      // BOUNDARY_ID_MAX_X and BOUNDARY_ID_MIN_Y
-      // then let's set an edge boundary condition
-      if (found_side_max_x && found_side_min_y)
-        for (unsigned int e=0; e<elem->n_edges(); e++)
-          if (elem->is_edge_on_side(e, side_max_x) &&
-              elem->is_edge_on_side(e, side_min_y))
-          {
-            std::cout << "adding ele " << e << std::endl;
-            mesh.get_boundary_info().add_edge(elem, e, EDGE_BOUNDARY_ID);
-          }
+        }
+      }
+    }
   }
+
+// --------
+
+//  mesh.get_boundary_info().clear();
+//  libMesh::SerialMesh::const_element_iterator         el     = mesh.elements_begin();
+//  const libMesh::SerialMesh::const_element_iterator   end_el = mesh.elements_end();
+//  for ( ; el != end_el; ++el)
+//  {
+//    const libMesh::Elem * elem = *el;
+
+//      unsigned int
+//        side_max_x = 0, side_min_y = 0,
+//        side_max_y = 0, side_max_z = 0;
+
+//      bool
+//        found_side_max_x = false, found_side_max_y = false,
+//        found_side_min_y = false, found_side_max_z = false;
+
+//      for (unsigned int side=0; side<elem->n_sides(); side++)
+//        {
+//          if (mesh.get_boundary_info().has_boundary_id(elem, side, BOUNDARY_ID_MAX_X))
+//            { 
+//              std::cout << "max x " << std::endl;
+//              side_max_x = side;
+//              found_side_max_x = true;
+//            }
+
+//          if (mesh.get_boundary_info().has_boundary_id(elem, side, BOUNDARY_ID_MIN_Y))
+//            {
+//              std::cout << "min y " << std::endl;
+//              side_min_y = side;
+//              found_side_min_y = true;
+//            }
+
+//          if (mesh.get_boundary_info().has_boundary_id(elem, side, BOUNDARY_ID_MAX_Y))
+//            {
+//              std::cout << "max y " << std::endl;
+//              side_max_y = side;
+//              found_side_max_y = true;
+//            }
+
+//          if (mesh.get_boundary_info().has_boundary_id(elem, side, BOUNDARY_ID_MAX_Z))
+//            {
+//              std::cout << "max z " << std::endl;
+//              side_max_z = side;
+//              found_side_max_z = true;
+//            }
+//        }
+
+//      // If elem has sides on boundaries
+//      // BOUNDARY_ID_MAX_X, BOUNDARY_ID_MAX_Y, BOUNDARY_ID_MAX_Z
+//      // then let's set a node boundary condition
+//      if (found_side_max_x && found_side_max_y && found_side_max_z)
+//        for (unsigned int n=0; n<elem->n_nodes(); n++)
+//          if (elem->is_node_on_side(n, side_max_x) &&
+//              elem->is_node_on_side(n, side_max_y) &&
+//              elem->is_node_on_side(n, side_max_z))
+//          {
+//            std::cout << "adding node " << n << std::endl;
+//            mesh.get_boundary_info().add_node(elem->node_ptr(n), NODE_BOUNDARY_ID);
+//          }
+
+
+//      // If elem has sides on boundaries
+//      // BOUNDARY_ID_MAX_X and BOUNDARY_ID_MIN_Y
+//      // then let's set an edge boundary condition
+//      if (found_side_max_x && found_side_min_y)
+//        for (unsigned int e=0; e<elem->n_edges(); e++)
+//          if (elem->is_edge_on_side(e, side_max_x) &&
+//              elem->is_edge_on_side(e, side_min_y))
+//          {
+//            std::cout << "adding ele " << e << std::endl;
+//            mesh.get_boundary_info().add_edge(elem, e, EDGE_BOUNDARY_ID);
+//          }
+//  }
 
   if(mesh.get_boundary_info().n_boundary_ids() == 0)
   {
     std::cout << "Error: No boundary ids tagged " << std::endl;
   }
 
-  boundary_ids.insert(BOUNDARY_ID_MIN_X);
-  boundary_ids.insert(NODE_BOUNDARY_ID);
-  boundary_ids.insert(EDGE_BOUNDARY_ID);
+//  boundary_ids.insert(BOUNDARY_ID_MIN_X);
+//  boundary_ids.insert(NODE_BOUNDARY_ID);
+//  boundary_ids.insert(EDGE_BOUNDARY_ID);
+exit(0);  
 }
 
 libMesh::Real exact_solution (const libMesh::Real x,
