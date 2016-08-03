@@ -11,7 +11,7 @@
 int main(int argc, char* argv[])
 {
   libMesh::LibMeshInit init (argc, argv);
-  MPI_Init(&argc, &argv);
+//  MPI_Init(&argc, &argv);
 
   libMesh::Mesh libmesh(init.comm());
   int ps = 15;
@@ -30,11 +30,11 @@ int main(int argc, char* argv[])
 
   libmesh.print_info();
 
-  libMesh::MetisPartitioner partitioner;
-  partitioner.partition(libmesh, 8);
-  libmesh.print_info();
+//  libMesh::MetisPartitioner partitioner;
+//  partitioner.partition(libmesh, 8);
+//  libmesh.print_info();
 
 
-  MPI_Finalize();
+
   return 0;
 }

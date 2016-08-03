@@ -93,8 +93,8 @@ ENDIF(BUILD_TESTS)
 ADD_EXECUTABLE(viennapermon_sim     src/viennapermon_sim.cpp)
 TARGET_LINK_LIBRARIES(viennapermon_sim ${LIBRARIES})
 
-ADD_EXECUTABLE(libmetis_partitioner     src/libmetis_partitioner.cpp)
-TARGET_LINK_LIBRARIES(libmetis_partitioner ${LIBRARIES})
+ADD_EXECUTABLE(devel_libmetis_parmesh     src/devel_libmetis_parmesh.cpp)
+TARGET_LINK_LIBRARIES(devel_libmetis_parmesh ${LIBRARIES})
 
 
 
