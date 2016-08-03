@@ -27,7 +27,7 @@ CXX=mpicxx CC=mpicc cmake -DLIBMESH_DIR=$LIBMESH_DIR/ ..
 
 
 
-libMesh Build Instructions: (tested with 0.9.4)
+libMesh Build Instructions: (tested with 1.0.0)
   ./configure --prefix=/install/path/ --disable-mpi --disable-fortran --disable-tetgen
 
 

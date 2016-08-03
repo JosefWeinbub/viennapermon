@@ -8,11 +8,15 @@
 #include "libmesh/mesh_generation.h"
 #include "libmesh/metis_partitioner.h"
 
+
+#include "libmesh/exodusII_io.h"
+//#include "libmesh/vtk_io.h"
+
 int main(int argc, char* argv[])
 {
   libMesh::LibMeshInit init (argc, argv);
-//  MPI_Init(&argc, &argv);
-
+  {
+  std::cout << "Testing build_cube -> parallel mesh mechanism .." << std::endl;
   libMesh::Mesh libmesh(init.comm());
   int ps = 15;
   int dim = 3;
@@ -29,12 +33,14 @@ int main(int argc, char* argv[])
                                      ((dim == 2) ? libMesh::QUAD4 : libMesh::HEX8));
 
   libmesh.print_info();
-
-//  libMesh::MetisPartitioner partitioner;
-//  partitioner.partition(libmesh, 8);
-//  libmesh.print_info();
-
-
+  }
+  {
+  std::cout << std::endl;
+  std::cout << "Testing mesh reader -> parallel mesh mechanism .." << std::endl;
+  libMesh::Mesh mesh(init.comm());
+  mesh.read("../data/miscellaneous_ex9.exo");
+  mesh.print_info();
+  }
 
   return 0;
 }
