@@ -40,12 +40,15 @@
 #include "libmesh/boundary_info.h"
 
 // boundary IDs
-//#define LIBMESH_BOUNDARY_ID 100
 #define DIRICHLET_1 1
 #define DIRICHLET_2 2
 
 void tag_boundaries(libMesh::SerialMesh& mesh, std::set<libMesh::boundary_id_type>& boundary_ids)
 {
+  int mpi_size, mpi_rank;
+  MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+  std::cout << "[" << mpi_rank << "] " << "tagging boundaries .." << std::endl;
 
   // Add boundary IDs to this mesh so that we can use DirichletBoundary
   libMesh::MeshBase::const_element_iterator       el     = mesh.elements_begin();
@@ -67,19 +70,19 @@ void tag_boundaries(libMesh::SerialMesh& mesh, std::set<libMesh::boundary_id_typ
           if (elem->is_node_on_side(n, side))
           {
 //            std::cout << mesh.point(elem->node(n)) << std::endl; 
-            if( (mesh.point(elem->node(n))(0) >= 0.0) && (mesh.point(elem->node(n))(0) <= 0.5) &&
-                (mesh.point(elem->node(n))(1) >= 0.0) && (mesh.point(elem->node(n))(1) <= 0.5) &&
-                (mesh.point(elem->node(n))(2) == 0.0) )
+            if( (mesh.point(elem->node(n))(0) >= -5.0) && (mesh.point(elem->node(n))(0) <= -4.0) &&
+                (mesh.point(elem->node(n))(1) >= -5.0) && (mesh.point(elem->node(n))(1) <= -4.0) &&
+                (mesh.point(elem->node(n))(2) == -5.0) )
             {
-              std::cout << "adding dirichlet 1 node " << n << std::endl;
+//              std::cout << "[" << mpi_rank << "] " << "adding dirichlet 1 " << std::endl;
               mesh.get_boundary_info().add_node(elem->node_ptr(n), DIRICHLET_1);
             }
             else 
-            if( (mesh.point(elem->node(n))(0) >= 0.0) && (mesh.point(elem->node(n))(0) <= 0.5) &&
-                (mesh.point(elem->node(n))(1) >= 0.0) && (mesh.point(elem->node(n))(1) <= 0.5) &&
-                (mesh.point(elem->node(n))(2) == 1.0) )
+            if( (mesh.point(elem->node(n))(0) <= 5.0) && (mesh.point(elem->node(n))(0) >= 4.0) &&
+                (mesh.point(elem->node(n))(1) <= 5.0) && (mesh.point(elem->node(n))(1) >= 4.0) &&
+                (mesh.point(elem->node(n))(2) == 5.0) )
             {
-              std::cout << "adding dirichlet 2 node " << n << std::endl;
+//              std::cout << "[" << mpi_rank << "] " << "adding dirichlet 2 " << std::endl;
               mesh.get_boundary_info().add_node(elem->node_ptr(n), DIRICHLET_2);
             }
           }
@@ -88,90 +91,16 @@ void tag_boundaries(libMesh::SerialMesh& mesh, std::set<libMesh::boundary_id_typ
     }
   }
 
-// --------
+  std::cout << "[" << mpi_rank << "] " << "assigned boundary IDs: " << mesh.get_boundary_info().n_boundary_ids() << std::endl;
 
-//  mesh.get_boundary_info().clear();
-//  libMesh::SerialMesh::const_element_iterator         el     = mesh.elements_begin();
-//  const libMesh::SerialMesh::const_element_iterator   end_el = mesh.elements_end();
-//  for ( ; el != end_el; ++el)
+//  if(mesh.get_boundary_info().n_boundary_ids() == 0)
 //  {
-//    const libMesh::Elem * elem = *el;
-
-//      unsigned int
-//        side_max_x = 0, side_min_y = 0,
-//        side_max_y = 0, side_max_z = 0;
-
-//      bool
-//        found_side_max_x = false, found_side_max_y = false,
-//        found_side_min_y = false, found_side_max_z = false;
-
-//      for (unsigned int side=0; side<elem->n_sides(); side++)
-//        {
-//          if (mesh.get_boundary_info().has_boundary_id(elem, side, BOUNDARY_ID_MAX_X))
-//            { 
-//              std::cout << "max x " << std::endl;
-//              side_max_x = side;
-//              found_side_max_x = true;
-//            }
-
-//          if (mesh.get_boundary_info().has_boundary_id(elem, side, BOUNDARY_ID_MIN_Y))
-//            {
-//              std::cout << "min y " << std::endl;
-//              side_min_y = side;
-//              found_side_min_y = true;
-//            }
-
-//          if (mesh.get_boundary_info().has_boundary_id(elem, side, BOUNDARY_ID_MAX_Y))
-//            {
-//              std::cout << "max y " << std::endl;
-//              side_max_y = side;
-//              found_side_max_y = true;
-//            }
-
-//          if (mesh.get_boundary_info().has_boundary_id(elem, side, BOUNDARY_ID_MAX_Z))
-//            {
-//              std::cout << "max z " << std::endl;
-//              side_max_z = side;
-//              found_side_max_z = true;
-//            }
-//        }
-
-//      // If elem has sides on boundaries
-//      // BOUNDARY_ID_MAX_X, BOUNDARY_ID_MAX_Y, BOUNDARY_ID_MAX_Z
-//      // then let's set a node boundary condition
-//      if (found_side_max_x && found_side_max_y && found_side_max_z)
-//        for (unsigned int n=0; n<elem->n_nodes(); n++)
-//          if (elem->is_node_on_side(n, side_max_x) &&
-//              elem->is_node_on_side(n, side_max_y) &&
-//              elem->is_node_on_side(n, side_max_z))
-//          {
-//            std::cout << "adding node " << n << std::endl;
-//            mesh.get_boundary_info().add_node(elem->node_ptr(n), NODE_BOUNDARY_ID);
-//          }
-
-
-//      // If elem has sides on boundaries
-//      // BOUNDARY_ID_MAX_X and BOUNDARY_ID_MIN_Y
-//      // then let's set an edge boundary condition
-//      if (found_side_max_x && found_side_min_y)
-//        for (unsigned int e=0; e<elem->n_edges(); e++)
-//          if (elem->is_edge_on_side(e, side_max_x) &&
-//              elem->is_edge_on_side(e, side_min_y))
-//          {
-//            std::cout << "adding ele " << e << std::endl;
-//            mesh.get_boundary_info().add_edge(elem, e, EDGE_BOUNDARY_ID);
-//          }
+//    std::cout << "[" << mpi_rank << "] " << "No boundary ids tagged " << std::endl;
 //  }
 
-  if(mesh.get_boundary_info().n_boundary_ids() == 0)
-  {
-    std::cout << "Error: No boundary ids tagged " << std::endl;
-  }
+  boundary_ids.insert(DIRICHLET_1);
+  boundary_ids.insert(DIRICHLET_2);
 
-//  boundary_ids.insert(BOUNDARY_ID_MIN_X);
-//  boundary_ids.insert(NODE_BOUNDARY_ID);
-//  boundary_ids.insert(EDGE_BOUNDARY_ID);
-exit(0);  
 }
 
 libMesh::Real exact_solution (const libMesh::Real x,
@@ -201,6 +130,10 @@ void exact_solution_wrapper (libMesh::DenseVector<libMesh::Number> & output,
 void assemble_poisson(libMesh::EquationSystems & es,
                       const std::string & system_name)
 {
+  int mpi_size, mpi_rank;
+  MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+  std::cout << "[" << mpi_rank << "] " << "assembling poisson .." << std::endl;
 
   // Declare a performance log.  Give it a descriptive
   // string to identify what part of the code we are
@@ -453,6 +386,7 @@ void process_local(viennamesh::context_handle& context,
   int mpi_size, mpi_rank;
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+  std::cout << "[" << mpi_rank << "] " << "process local .." << std::endl;
 
   viennamesh::algorithm_handle mark_hull_regions = context.make_algorithm("mark_hull_regions");
   mark_hull_regions.set_input( "mesh", mesh_local.internal() );
@@ -481,22 +415,26 @@ void process_local(viennamesh::context_handle& context,
 
   libMesh::SerialMesh libmesh(init.comm());
 // ---------------------------------------------------------------------
-  viennagrid::mesh const& local_vgrid_mesh = mesher.get_output<viennagrid_mesh>("mesh")();
-  viennagrid2libmesh(local_vgrid_mesh, libmesh);
+//  viennagrid::mesh const& local_vgrid_mesh = mesher.get_output<viennagrid_mesh>("mesh")();
+//  viennagrid2libmesh(local_vgrid_mesh, libmesh);
 // ---------------------------------------------------------------------
-//  int ps = 15;
-//  int dim = 3;
-//  libMesh::Real halfwidth = dim > 1 ? 1. : 0.;
-//  libMesh::Real halfheight = dim > 2 ? 1. : 0.;
-//  libMesh::MeshTools::Generation::build_cube (libmesh,
-//                                     ps,
-//                                     (dim>1) ? ps : 0,
-//                                     (dim>2) ? ps : 0,
-//                                     -1., 1.,
-//                                     -halfwidth, halfwidth,
-//                                     -halfheight, halfheight,
-//                                     (dim==1)    ? libMesh::EDGE2 :
-//                                     ((dim == 2) ? libMesh::QUAD4 : libMesh::HEX8));
+  int ps = 15;
+  if(mpi_rank == 0)
+  {
+    libMesh::MeshTools::Generation::build_cube (libmesh, ps, ps, ps,
+                                       -5., 5., // xmin, xmax
+                                       -5., 5., // ymin, ymax
+                                       -5., 0., // zmin, zmax
+                                       libMesh::HEX8);
+  }
+  else
+  {
+    libMesh::MeshTools::Generation::build_cube (libmesh, ps, ps, ps,
+                                       -5., 5., // xmin, xmax
+                                       -5., 5., // ymin, ymax
+                                       -5., 0., // zmin, zmax
+                                       libMesh::HEX8);
+  }
 // ---------------------------------------------------------------------
 
 //  libMesh::VTKIO io(libmesh);
@@ -507,6 +445,8 @@ void process_local(viennamesh::context_handle& context,
 //  std::string local_mesh_filename = std::string("local_libmesh_p"+std::to_string(mpi_rank)+".e");
 //  std::cout << "[" << mpi_rank << "]" << " writing local libmesh to: " << local_mesh_filename << std::endl;
 //  io.write(local_mesh_filename);
+
+
 
   // Create an equation systems object.
   libMesh::EquationSystems equation_systems (libmesh);
@@ -570,10 +510,9 @@ void process_local(viennamesh::context_handle& context,
 
 int main(int argc, char* argv[])
 {
-  libMesh::LibMeshInit init (argc, argv);
-
-  int mpi_size, mpi_rank;
+  libMesh::LibMeshInit init(argc, argv);
   MPI_Init(&argc, &argv);
+  int mpi_size, mpi_rank;
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
 
@@ -587,8 +526,6 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-
-
   if(mpi_size < 2)
   {
     std::cout << "This application must be executed with at least 2 MPI processes - aborting!" << std::endl;
@@ -596,11 +533,9 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-//#ifndef LIBMESH_HAVE_VTK
-//  std::cout << "libMesh must be built with VTK support - aborting!" << std::endl;
-//  MPI_Finalize();
-//  return 1;
-//#endif
+  if(mpi_rank == 0)
+    std::cout << "[" << mpi_rank << "] " << "mpi processes in the communicator: " << mpi_size << std::endl;
+  std::cout << "[" << mpi_rank << "] " << "rank is here .." << std::endl;
 
   viennamesh::context_handle context;
 
@@ -631,6 +566,15 @@ int main(int argc, char* argv[])
       viennamesh::LoggingStack s("metis_mesh_partitioning");
       metis_partitioning.run();
     }
+
+    viennamesh::algorithm_handle mesh_writer = context.make_algorithm("mesh_writer");
+    mesh_writer.set_default_source(metis_partitioning);
+    mesh_writer.set_input( "filename", "partitioned_mesh_input.pvd" );
+    {
+      viennamesh::LoggingStack s("mesh_writer");
+      mesh_writer.run();
+    }
+
 
     viennamesh::algorithm_handle extract_boundary = context.make_algorithm("extract_boundary");
     extract_boundary.set_default_source(metis_partitioning);
@@ -672,6 +616,7 @@ int main(int argc, char* argv[])
     // partitions-1..n are processed by the worker processes (mpi_rank=1..mpi_size-1)
     //
 
+    std::cout << "[" << mpi_rank << "] " << "sending submeshes to workers .." << std::endl;
 //     viennamesh::data_handle<viennagrid_mesh> meshes = split_mesh.get_output<viennagrid_mesh>( "mesh" );
     for(int target = 1; target < mpi_size; target++)
     {
@@ -681,7 +626,7 @@ int main(int argc, char* argv[])
 
     // Master simulates the first partition
     //
-
+    std::cout << "[" << mpi_rank << "] " << "submeshes sent - processing .." << std::endl;
 //     viennagrid::mesh mesh = meshes(0);
     viennagrid::mesh mesh = split_mesh.get_output<viennagrid_mesh>("mesh[0]")();
     process_local(context, mesh, init);
@@ -689,10 +634,14 @@ int main(int argc, char* argv[])
   // Worker processes
   else
   {
+    std::cout << "[" << mpi_rank << "] " << "waiting for submesh .." << std::endl;
+
     // Receive the local mesh which is to be processed/simulated
     //
     MeshType mesh;
     viennagrid::mpi::recv(mesh, 0, MPI_COMM_WORLD);
+
+    std::cout << "[" << mpi_rank << "] " << "submesh received - processing .." << std::endl;
 
     // Process/simulate the local mesh
     //

@@ -57,7 +57,8 @@ void viennagrid2libmesh(viennagrid::mesh const& vgrid_mesh, libMesh::SerialMesh&
     libmesh.add_elem(elem);
   }
 
-  libmesh.prepare_for_use (/*skip_renumber =*/ false);
+// [JW] the following segfaults .. do we need it?
+//  libmesh.prepare_for_use (/*skip_renumber =*/ false);
 }
 
 
