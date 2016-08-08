@@ -69,7 +69,7 @@ void tag_boundaries(libMesh::SerialMesh& mesh, std::set<libMesh::boundary_id_typ
         {
           if (elem->is_node_on_side(n, side))
           {
-//            std::cout << mesh.point(elem->node(n)) << std::endl; 
+//            std::cout << mesh.point(elem->node(n)) << std::endl;
             if( (mesh.point(elem->node(n))(0) >= -5.0) && (mesh.point(elem->node(n))(0) <= -4.0) &&
                 (mesh.point(elem->node(n))(1) >= -5.0) && (mesh.point(elem->node(n))(1) <= -4.0) &&
                 (mesh.point(elem->node(n))(2) == -5.0) )
@@ -77,7 +77,7 @@ void tag_boundaries(libMesh::SerialMesh& mesh, std::set<libMesh::boundary_id_typ
 //              std::cout << "[" << mpi_rank << "] " << "adding dirichlet 1 " << std::endl;
               mesh.get_boundary_info().add_node(elem->node_ptr(n), DIRICHLET_1);
             }
-            else 
+            else
             if( (mesh.point(elem->node(n))(0) <= 5.0) && (mesh.point(elem->node(n))(0) >= 4.0) &&
                 (mesh.point(elem->node(n))(1) <= 5.0) && (mesh.point(elem->node(n))(1) >= 4.0) &&
                 (mesh.point(elem->node(n))(2) == 5.0) )
@@ -225,7 +225,7 @@ void assemble_poisson(libMesh::EquationSystems & es,
   const libMesh::MeshBase::const_element_iterator end_el = mesh.elements_end();
 
   for ( ; el != end_el; ++el)
-    { 
+    {
       // Start logging the shape function initialization.
       // This is done through a simple function call with
       // the name of the event to log.
@@ -388,6 +388,8 @@ void process_local(viennamesh::context_handle& context,
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   std::cout << "[" << mpi_rank << "] " << "process local .." << std::endl;
 
+  // Creates a mark hull regions algorithm
+  // This algorithm determines the region and the orientation for each triangle. This step is required because the volumetric mesh generation algorithm used in the MPI processes required oriented hull meshes.
   viennamesh::algorithm_handle mark_hull_regions = context.make_algorithm("mark_hull_regions");
   mark_hull_regions.set_input( "mesh", mesh_local.internal() );
   {
@@ -396,7 +398,8 @@ void process_local(viennamesh::context_handle& context,
   }
 
   // generate local volume mesh
-  //
+  // Create a Netgen volumetric mesh generation
+  // From the meshing point of view, this algorithm is the "heart" of this example. This algorithm generates the volumetric mesh of the partition which is assigned to this MPI process. This mesh is later passed to libMesh to do some FEM.
   viennamesh::algorithm_handle mesher = context.make_algorithm("netgen_make_mesh");
   mesher.set_default_source(mark_hull_regions);
   {
@@ -537,6 +540,7 @@ int main(int argc, char* argv[])
     std::cout << "[" << mpi_rank << "] " << "mpi processes in the communicator: " << mpi_size << std::endl;
   std::cout << "[" << mpi_rank << "] " << "rank is here .." << std::endl;
 
+  // Initialize and setup a ViennaMesh context for algorithm creation, handling, and more
   viennamesh::context_handle context;
 
   // Master process
@@ -544,29 +548,46 @@ int main(int argc, char* argv[])
   {
     std::string filename = argv[1];
 
+    // Create a PLC reader algorithm which reads a .poly PLC geometry from a file
+    // For more information on .poly files see http://wias-berlin.de/software/tetgen/fformats.poly.html
     viennamesh::algorithm_handle mesh_reader = context.make_algorithm("plc_reader");
+
+    // Set the filename parameter to the first input argument
     mesh_reader.set_input( "filename", filename );
     {
+      // Using a LoggingStack for better log layout (indentation) and runtime measurement
       viennamesh::LoggingStack s("plc_reader");
+
+      // Starting the reader algorithm
       mesh_reader.run();
     }
 
+    // Create a Tetgen tetrahedral mesh generation algorithm
+    // This algorithm creates a 3D volumetric mesh based on PLC geometry
+    // At this point, a coarse volumetric mesh without any quality constraints is sufficient because it is only used for partitioning
     viennamesh::algorithm_handle mesher = context.make_algorithm("tetgen_make_mesh");
+    // Use the outputs of the PLC reader algorithm as inputs
     mesher.set_default_source(mesh_reader);
+    // Set a maximal cell size to obtain sufficient fine partitioning
     mesher.set_input("cell_size", 10.0);
     {
       viennamesh::LoggingStack s("tetgen_make_mesh");
       mesher.run();
     }
 
+    // Create a Metis mesh partitioning algorithm
+    // This algorithm is used to create a partition of the coarse volumetric mesh which is then distributed to the MPI processes
     viennamesh::algorithm_handle metis_partitioning = context.make_algorithm("metis_mesh_partitioning");
     metis_partitioning.set_default_source(mesher);
+    // Set the requested partition/region count to the configured number of MPI processes
     metis_partitioning.set_input( "region_count", mpi_size );
     {
       viennamesh::LoggingStack s("metis_mesh_partitioning");
       metis_partitioning.run();
     }
 
+    // Create a mesh writer algorithm
+    // This algorithm is used here to save the volumetric partition to a VTU/Paraview file
     viennamesh::algorithm_handle mesh_writer = context.make_algorithm("mesh_writer");
     mesh_writer.set_default_source(metis_partitioning);
     mesh_writer.set_input( "filename", "partitioned_mesh_input.pvd" );
@@ -576,27 +597,39 @@ int main(int argc, char* argv[])
     }
 
 
+    // Create a boundary extraction algorithm
+    // This algorithm is used to extract the boundary and interface elements of the partitioned volumetric mesh
+    // The result of this step is a triangle hull mesh which will later be used to generate a hull mesh with desired mesh element size.
     viennamesh::algorithm_handle extract_boundary = context.make_algorithm("extract_boundary");
     extract_boundary.set_default_source(metis_partitioning);
     extract_boundary.run();
 
+    // Create a PLC geometry extraction algorithm
+    // This algorithm "coarsens" the generated triangular hull to obtain a geometry. Co-planar triangles will be merged.
     viennamesh::algorithm_handle extract_plc_geometry = context.make_algorithm("extract_plc_geometry");
     extract_plc_geometry.set_default_source(extract_boundary);
+    // Set the tolerance for determining if two triangle faces are considered to be coplanar. Two triangles are considered coplanar, if the absolute inner product of the normalized normal vectors of the two triangles is greater or equal one minus the tolerance.
     extract_plc_geometry.set_input("coplanar_tolerance", 1e-2);
+    // Set the tolerance for determining if two lines are considered colinear. Two linear are considered colinier, if the absolute inner product of the normalized line direction vectors is greater or equal one minus the tolerance.
     extract_plc_geometry.set_input("colinear_tolerance", 1e-2);
     {
       viennamesh::LoggingStack s("extract_plc_geometry");
       extract_plc_geometry.run();
     }
 
+    // Creates a triangular hull generation algorithm
+    // This algorithm generates a triangular hull based on a PLC geometry. This step is required to obtain a hull mesh (which will later be used by the volumetric mesh generation algorithms in each MPI process) with desired cell (triangle) size.
     viennamesh::algorithm_handle triangle_make_hull = context.make_algorithm("triangle_make_hull");
     triangle_make_hull.set_default_source(extract_plc_geometry);
+    // Set the desired triangle size to 1.0
     triangle_make_hull.set_input("cell_size", 1.0);
     {
       viennamesh::LoggingStack s("triangle_make_hull");
       triangle_make_hull.run();
     }
 
+    // Creates a mark hull regions algorithm
+    // This algorithm determines the region and the orientation for each triangle. Here, only the region marking is required.
     viennamesh::algorithm_handle mark_hull_regions = context.make_algorithm("mark_hull_regions");
     mark_hull_regions.set_default_source(triangle_make_hull);
     {
@@ -604,6 +637,8 @@ int main(int argc, char* argv[])
       mark_hull_regions.run();
     }
 
+    // Creates a split mesh algorithm
+    // This algorithm splits the (multi-region) hull mesh in multiple meshes, each representing a partition.
     viennamesh::algorithm_handle split_mesh = context.make_algorithm("split_mesh");
     split_mesh.set_default_source(mark_hull_regions);
     {
@@ -620,6 +655,7 @@ int main(int argc, char* argv[])
 //     viennamesh::data_handle<viennagrid_mesh> meshes = split_mesh.get_output<viennagrid_mesh>( "mesh" );
     for(int target = 1; target < mpi_size; target++)
     {
+      // Obtain the mesh (which represents the hull of a partition) for each MPI process and send it to the process.
       viennagrid::mesh mesh = split_mesh.get_output<viennagrid_mesh>("mesh[" + boost::lexical_cast<std::string>(target) + "]")();
       viennagrid::mpi::send(mesh, target, MPI_COMM_WORLD);
     }
